@@ -5,22 +5,6 @@
 [ext_resource type="Texture2D" uid="uid://dinubfua8gqhw" path="res://assets/graphics/timeline/expandable.png" id="3"]
 [ext_resource type="Texture2D" uid="uid://b0gbmkb8xwksb" path="res://addons/keychain/assets/folder.svg" id="4"]
 [ext_resource type="PackedScene" uid="uid://yjhp0ssng2mp" path="res://src/UI/Nodes/Sliders/ValueSlider.tscn" id="5_gel1w"]
-[ext_resource type="PackedScene" uid="uid://3pmb60gpst7b" path="res://src/UI/Nodes/TransparentChecker.tscn" id="6_uegas"]
-[ext_resource type="Shader" uid="uid://c50kmfvf635kb" path="res://src/Shaders/TransparentChecker.gdshader" id="7_4flx0"]
-[ext_resource type="PackedScene" uid="uid://bbnqcxa20a5a5" path="res://src/UI/Nodes/Sliders/ValueSliderV2.tscn" id="8_4flx0"]
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_i12tv"]
-shader = ExtResource("7_4flx0")
-shader_parameter/size = 10.0
-shader_parameter/alpha = 1.0
-shader_parameter/color1 = Color(0.7, 0.7, 0.7, 1)
-shader_parameter/color2 = Color(1, 1, 1, 1)
-shader_parameter/offset = Vector2(0, 0)
-shader_parameter/scale = Vector2(0, 0)
-shader_parameter/rect_size = Vector2(134, 134)
-shader_parameter/follow_movement = false
-shader_parameter/follow_scale = false
-
 [node name="Recorder" type="PanelContainer" unique_id=1162713892]
 custom_minimum_size = Vector2(0, 36)
 offset_left = 1.0
@@ -199,68 +183,6 @@ allow_greater = true
 prefix = "Capture frame every:"
 suffix = "Seconds"
 
-[node name="FFmpegOptions" type="VBoxContainer" parent="OptionsDialog/PanelContainer/OptionsContainer" unique_id=1042645115]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="IntervalHeader" type="HBoxContainer" parent="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions" unique_id=1695858121]
-layout_mode = 2
-theme_override_constants/separation = 0
-
-[node name="Label" type="Label" parent="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/IntervalHeader" unique_id=349327139]
-layout_mode = 2
-theme_type_variation = &"HeaderSmall"
-text = "FFmpeg"
-
-[node name="HSeparator" type="HSeparator" parent="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/IntervalHeader" unique_id=691670789]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="HBoxContainer" type="HBoxContainer" parent="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions" unique_id=219842800]
-layout_mode = 2
-
-[node name="ExportGifCheckbox" type="CheckBox" parent="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/HBoxContainer" unique_id=2083856940]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Export as gif"
-
-[node name="FFmpegExportByOption" type="OptionButton" parent="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/HBoxContainer" unique_id=1642509900]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="FPSValueSlider" parent="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions" unique_id=979610264 instance=ExtResource("5_gel1w")]
-unique_name_in_owner = true
-layout_mode = 2
-min_value = 1.0
-step = 0.1
-value = 10.0
-prefix = "Clip FPS:"
-
-[node name="FFmpegScondsSlider" parent="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions" unique_id=1770967919 instance=ExtResource("5_gel1w")]
-unique_name_in_owner = true
-layout_mode = 2
-min_value = 1.0
-max_value = 20.0
-step = 0.1
-value = 20.0
-allow_greater = true
-prefix = "Clip Duration:"
-suffix = "Seconds"
-
-[node name="CropOptions" type="VBoxContainer" parent="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions" unique_id=1707727102]
-layout_mode = 2
-
-[node name="GifStartFrame" parent="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/CropOptions" unique_id=1324902824 instance=ExtResource("5_gel1w")]
-layout_mode = 2
-prefix = "Start Gif at frame:"
-
-[node name="GifEndFrame" parent="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/CropOptions" unique_id=811754211 instance=ExtResource("5_gel1w")]
-layout_mode = 2
-min_value = -1.0
-value = -1.0
-prefix = "End Gif at frame:"
-
 [node name="CaptureModeOptions" type="VBoxContainer" parent="OptionsDialog/PanelContainer/OptionsContainer" unique_id=1704496282]
 layout_mode = 2
 size_flags_vertical = 3
@@ -277,95 +199,6 @@ text = "Capture Mode"
 [node name="HSeparator" type="HSeparator" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/ModeHeader" unique_id=439244338]
 layout_mode = 2
 size_flags_horizontal = 3
-
-[node name="AreaTypeOption" type="HBoxContainer" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions" unique_id=1038486671 groups=["hidden during recording"]]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaTypeOption" unique_id=91132164]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Record type: "
-
-[node name="RecordTypeOption" type="OptionButton" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaTypeOption" unique_id=867033300]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="TargetScreen" type="OptionButton" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaTypeOption" unique_id=722241195]
-unique_name_in_owner = true
-layout_mode = 2
-allow_reselect = true
-
-[node name="AreaOptions" type="VBoxContainer" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions" unique_id=1813312221]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-alignment = 1
-
-[node name="PanelContainer" type="PanelContainer" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions" unique_id=78720608]
-self_modulate = Color(0.7666196, 0.76661956, 0.76661956, 1)
-layout_mode = 2
-
-[node name="PreviewAspectRatioContainer" type="AspectRatioContainer" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions/PanelContainer" unique_id=1580570260]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 100)
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="RectTexture" type="TextureRect" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions/PanelContainer/PreviewAspectRatioContainer" unique_id=578837397]
-unique_name_in_owner = true
-texture_filter = 1
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-
-[node name="TransparentChecker" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions/PanelContainer/PreviewAspectRatioContainer" unique_id=1465196560 instance=ExtResource("6_uegas")]
-unique_name_in_owner = true
-show_behind_parent = true
-material = SubResource("ShaderMaterial_i12tv")
-layout_mode = 2
-
-[node name="Label" type="Label" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions" unique_id=276820511]
-layout_mode = 2
-text = "Preview"
-horizontal_alignment = 1
-
-[node name="RectOptions" type="HBoxContainer" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions" unique_id=832534224 groups=["hidden during recording"]]
-layout_mode = 2
-
-[node name="RectPositonSlider" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions/RectOptions" unique_id=803049451 instance=ExtResource("8_4flx0")]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-max_value = Vector2(1000, 1000)
-allow_greater = true
-show_ratio = true
-prefix_x = "Position X:"
-prefix_y = "Position Y:"
-suffix_x = "px"
-suffix_y = "px"
-
-[node name="RectSizeSlider" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions/RectOptions" unique_id=1236015352 instance=ExtResource("8_4flx0")]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-value = Vector2(10, 10)
-min_value = Vector2(1, 1)
-max_value = Vector2(1280, 720)
-allow_greater = true
-show_ratio = true
-prefix_x = "Size X:"
-prefix_y = "Size Y:"
-suffix_x = "px"
-suffix_y = "px"
-
-[node name="HBoxContainer" type="HBoxContainer" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions" unique_id=364951554]
-layout_mode = 2
-
-[node name="FollowMouse" type="CheckBox" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions/HBoxContainer" unique_id=242213587]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Follow Mouse"
 
 [node name="ScaleOutputCheckbox" type="CheckBox" parent="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions" unique_id=57015305 groups=["hidden during recording"]]
 unique_name_in_owner = true
@@ -421,10 +254,6 @@ editable = false
 layout_mode = 2
 text = "Choose"
 
-[node name="PreviewTimer" type="Timer" parent="." unique_id=711615223]
-unique_name_in_owner = true
-wait_time = 0.1
-
 [node name="CaptureTimer" type="Timer" parent="." unique_id=41738170]
 unique_name_in_owner = true
 
@@ -437,18 +266,6 @@ unique_name_in_owner = true
 [connection signal="value_changed" from="OptionsDialog/PanelContainer/OptionsContainer/IntervalOptions/CaptureMethod/CaptureActions" to="." method="_on_action_interval_value_changed"]
 [connection signal="value_changed" from="OptionsDialog/PanelContainer/OptionsContainer/IntervalOptions/CaptureMethod/MouseDistance" to="." method="_on_mouse_distance_value_changed"]
 [connection signal="value_changed" from="OptionsDialog/PanelContainer/OptionsContainer/IntervalOptions/CaptureMethod/CaptureSconds" to="." method="_on_seconds_interval_value_changed"]
-[connection signal="toggled" from="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/HBoxContainer/ExportGifCheckbox" to="." method="_on_export_gif_checkbox_toggled"]
-[connection signal="item_selected" from="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/HBoxContainer/FFmpegExportByOption" to="." method="_on_ffmpeg_export_by_option_item_selected"]
-[connection signal="value_changed" from="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/FPSValueSlider" to="." method="_on_fps_value_value_changed"]
-[connection signal="value_changed" from="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/FFmpegScondsSlider" to="." method="_on_ffmpeg_sconds_slider_value_changed"]
-[connection signal="value_changed" from="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/CropOptions/GifStartFrame" to="." method="_on_gif_start_frame_value_changed"]
-[connection signal="value_changed" from="OptionsDialog/PanelContainer/OptionsContainer/FFmpegOptions/CropOptions/GifEndFrame" to="." method="_on_gif_end_frame_value_changed"]
-[connection signal="item_selected" from="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaTypeOption/RecordTypeOption" to="." method="_on_record_type_option_item_selected"]
-[connection signal="item_selected" from="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaTypeOption/TargetScreen" to="." method="_on_target_screen_item_selected"]
-[connection signal="value_changed" from="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions/RectOptions/RectPositonSlider" to="." method="_on_rect_positon_slider_value_changed"]
-[connection signal="value_changed" from="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions/RectOptions/RectSizeSlider" to="." method="_on_rect_size_slider_value_changed"]
-[connection signal="toggled" from="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/AreaOptions/HBoxContainer/FollowMouse" to="." method="_on_follow_mouse_toggled"]
 [connection signal="toggled" from="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/ScaleOutputCheckbox" to="." method="_on_scale_output_checkbox_toggled"]
 [connection signal="value_changed" from="OptionsDialog/PanelContainer/OptionsContainer/CaptureModeOptions/OutputScale/ScaleValueSlider" to="." method="_on_output_scale_value_changed"]
 [connection signal="pressed" from="OptionsDialog/PanelContainer/OptionsContainer/OutputPath/PathContainer/Choose" to="." method="_on_Choose_pressed"]
-[connection signal="timeout" from="PreviewTimer" to="." method="_update_follow_mouse_preview"]

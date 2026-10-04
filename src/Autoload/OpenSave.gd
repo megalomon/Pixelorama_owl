@@ -109,8 +109,7 @@ func handle_loading_file(file: String, force_import_dialog_on_images := false) -
 		DirAccess.copy_absolute(file, new_path)
 		Global.loaded_fonts.append(font_file)
 	elif file_ext == "gif":
-		if not open_gif_file(file):
-			handle_loading_video(file)
+		open_gif_file(file)
 	elif file_ext == "ora":
 		open_ora_file(file)
 	elif file_ext == "kra":
@@ -138,8 +137,6 @@ func handle_loading_file(file: String, force_import_dialog_on_images := false) -
 		# Attempt to load as a regular image.
 		var image := Image.load_from_file(file)
 		if not is_instance_valid(image):  # Failed to import as image
-			if handle_loading_video(file):
-				return  # Succeeded in loading as video, so return early before the error appears
 			var file_name: String = file.uri_decode().get_file()
 			Global.popup_error(tr("Can't load file '%s'.") % [file_name])
 			return
@@ -243,55 +240,6 @@ func handle_loading_aimg(path: String, frames: Array) -> void:
 		project.frames.append(frame)
 
 	set_new_imported_tab(project, path)
-
-
-## Uses FFMPEG to attempt to load a video file as a new project. Works by splitting the video file
-## to multiple png images for each of the video's frames,
-## and then it imports these images as frames of a new project.
-## TODO: Don't allow large files (how large?) to be imported, to avoid crashes due to lack of memory
-## TODO: Find the video's fps and use that for the new project.
-func handle_loading_video(file: String) -> bool:
-	DirAccess.make_dir_absolute(Export.temp_path)
-	var temp_path_real := Export.temp_path
-	var output_file_path := temp_path_real.path_join("%04d.png")
-	# ffmpeg -y -i input_file %04d.png
-	var ffmpeg_execute: PackedStringArray = ["-y", "-i", file, output_file_path]
-	var success := OS.execute(Global.ffmpeg_path, ffmpeg_execute, [], true)
-	if success < 0 or success > 1:  # FFMPEG is probably not installed correctly
-		DirAccess.remove_absolute(Export.temp_path)
-		return false
-	var images_to_import: Array[Image] = []
-	var project_size := Vector2i.ZERO
-	var temp_dir := DirAccess.open(Export.temp_path)
-	for temp_file in temp_dir.get_files():
-		var temp_image := Image.load_from_file(Export.temp_path.path_join(temp_file))
-		temp_dir.remove(temp_file)
-		if not is_instance_valid(temp_image):
-			continue
-		images_to_import.append(temp_image)
-		if temp_image.get_width() > project_size.x:
-			project_size.x = temp_image.get_width()
-		if temp_image.get_height() > project_size.y:
-			project_size.y = temp_image.get_height()
-	if images_to_import.size() == 0 or project_size == Vector2i.ZERO:
-		DirAccess.remove_absolute(Export.temp_path)
-		return false  # We didn't find any images, return
-	# If we found images, create a new project out of them
-	var new_project := Project.new([], file.uri_decode().get_basename().get_file(), project_size)
-	new_project.layers.append(PixelLayer.new(new_project))
-	for temp_image in images_to_import:
-		open_image_as_new_frame(temp_image, 0, new_project, false)
-	Global.projects.append(new_project)
-	Global.tabs.current_tab = Global.tabs.get_tab_count() - 1
-	var output_audio_file := temp_path_real.path_join("audio.mp3")
-	# ffmpeg -y -i input_file -vn audio.mp3
-	var ffmpeg_execute_audio: PackedStringArray = ["-y", "-i", file, "-vn", output_audio_file]
-	OS.execute(Global.ffmpeg_path, ffmpeg_execute_audio, [], true)
-	if FileAccess.file_exists(output_audio_file):
-		open_audio_file(output_audio_file)
-		temp_dir.remove("audio.mp3")
-	DirAccess.remove_absolute(Export.temp_path)
-	return true
 
 
 func open_pxo_file(path: String, is_backup := false, replace_empty := true) -> void:
@@ -490,18 +438,13 @@ func save_pxo_file(
 		Global.popup_error(tr("File failed to save. Converting dictionary to JSON failed."))
 		return false
 
-	# Check if a file with the same name exists. If it does, rename the new file temporarily.
-	# Needed in case of a crash, so that the old file won't be replaced with an empty one.
-	# NOTE: This cannot work in the case of Android, because SAF only allows a file
-	# to be saved if it has the exact same path as the one the user defined.
-	var temp_path := path
-	if FileAccess.file_exists(path) and not OS.get_name() == "Android":
-		temp_path = path + "1"
+	# NOTE: The file is written in place, without a temporary file, because Android's SAF
+	# only allows a file to be saved if it has the exact same path as the one the user defined.
 	var zip_packer := ZIPPacker.new()
-	var err := zip_packer.open(temp_path)
+	var err := zip_packer.open(path)
 	if err != OK:
 		Global.popup_error(tr("File failed to save. Error code %s (%s)") % [err, error_string(err)])
-		if temp_path.is_valid_filename():
+		if path.is_valid_filename():
 			return false
 		if zip_packer:  # this would be null if we attempt to save filenames such as "//\\||.pxo"
 			zip_packer.close()
@@ -621,19 +564,6 @@ func save_pxo_file(
 			zip_packer.close_file()
 	zip_packer.close()
 
-	if temp_path != path:
-		# Rename the new file to its proper name and remove the old file, if it exists.
-		DirAccess.rename_absolute(temp_path, path)
-
-	if OS.has_feature("web") and not autosave:
-		var file := FileAccess.open(path, FileAccess.READ)
-		if FileAccess.get_open_error() == OK:
-			var file_data := file.get_buffer(file.get_length())
-			JavaScriptBridge.download_buffer(file_data, path.get_file())
-		file.close()
-		# Remove the .pxo file from memory, as we don't need it anymore
-		DirAccess.remove_absolute(path)
-
 	if autosave:
 		Global.notification_label("Backup saved")
 	else:
@@ -653,7 +583,6 @@ func save_pxo_file(
 			Global.FileMenu.SAVE, tr("Save") + " %s" % path.uri_decode().get_file()
 		)
 		project_saved.emit()
-		SteamManager.set_achievement("ACH_SAVE")
 		save_project_to_recent_list(path)
 	persist_file_read_write_permissions(path)
 	return true

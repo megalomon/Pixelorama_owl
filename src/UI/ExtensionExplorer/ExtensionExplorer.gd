@@ -118,13 +118,6 @@ func _on_explore_pressed() -> void:
 	popup_centered_clamped()
 
 
-## Function related to error dialog
-func _on_CopyCommand_pressed() -> void:
-	DisplayServer.clipboard_set(
-		"sudo flatpak override com.orama_interactive.Pixelorama --share=network"
-	)
-
-
 ## Adds a new extension entry to the "content"
 func add_entry(info: Dictionary) -> void:
 	var entry := EXTENSION_ENTRY_TSCN.instantiate()

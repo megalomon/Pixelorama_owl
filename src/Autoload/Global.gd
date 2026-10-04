@@ -78,7 +78,7 @@ enum ViewMenu {
 	SNAP_TO,
 }
 ## Enumeration of items present in the Window Menu.
-enum WindowMenu { WINDOW_OPACITY, PANELS, LAYOUTS, MOVABLE_PANELS, ZEN_MODE, FULLSCREEN_MODE }
+enum WindowMenu { PANELS, LAYOUTS, MOVABLE_PANELS, ZEN_MODE, FULLSCREEN_MODE }
 ## Enumeration of items present in the Image Menu.
 enum ProjectMenu {
 	PROJECT_PROPERTIES,
@@ -136,8 +136,6 @@ const SUPPORTED_IMAGE_TYPES: PackedStringArray = [
 const RUNNING_FILE_PATH := "user://.running"
 ## The file path used for the [member config_cache] file.
 const CONFIG_PATH := "user://config.ini"
-## The file used to save preferences that use [method _save_to_override_file].
-const OVERRIDE_FILE := "user://override.cfg"
 ## The name of folder containing Pixelorama preferences.
 const HOME_SUBDIR_NAME := "pixelorama"
 ## The name of folder that contains subdirectories for users to place brushes, palettes, patterns.
@@ -219,8 +217,6 @@ var show_x_minus_y_symmetry_axis := false
 var open_last_project := false
 ## Found in Preferences. If [code]true[/code], asks for permission to quit on exit.
 var quit_confirmation := false
-## Found in Preferences. Refers to the ffmpeg location path.
-var ffmpeg_path := ""
 ## Found in Preferences. If [code]true[/code], the zoom is smooth.
 var smooth_zoom := true
 ## Found in Preferences. If [code]true[/code], the zoom is restricted to integral multiples of 100%.
@@ -285,19 +281,12 @@ var use_native_file_dialogs := false:
 			await tree_entered
 			await get_tree().process_frame
 		get_tree().set_group(&"FileDialogs", "use_native_dialog", value)
-var collapse_main_menu := OS.has_feature("mobile"):
+var collapse_main_menu := true:
 	set(value):
 		if value == collapse_main_menu:
 			return
 		collapse_main_menu = value
 		collapse_main_menu_changed.emit()
-## Found in Preferences. If [code]true[/code], subwindows are embedded in the main window.
-var single_window_mode := true:
-	set(value):
-		if value == single_window_mode:
-			return
-		single_window_mode = value
-		_save_to_override_file()
 ## Found in Preferences. The index of the current theme preset.
 var theme_preset_index := 0:
 	set(value):
@@ -550,17 +539,6 @@ var update_continuously := false:
 	set(value):
 		update_continuously = value
 		OS.low_processor_usage_mode = !value
-var window_transparency := false:
-	set(value):
-		if value == window_transparency:
-			return
-		window_transparency = value
-		_save_to_override_file()
-var dummy_audio_driver := false:
-	set(value):
-		if value != dummy_audio_driver:
-			dummy_audio_driver = value
-			_save_to_override_file()
 
 ## Found in Preferences. The maximum limit of recent sessions that can be stored as backup.
 var max_backed_sessions := 20.0:
@@ -583,14 +561,6 @@ var enable_autosave := true:
 			return
 		enable_autosave = value
 		OpenSave.update_autosave()
-## Found in Preferences. The index of tablet driver used by Pixelorama.
-var tablet_driver := 0:
-	set(value):
-		if value == tablet_driver:
-			return
-		tablet_driver = value
-		var tablet_driver_name := DisplayServer.tablet_get_driver_name(tablet_driver)
-		DisplayServer.tablet_set_current_driver(tablet_driver_name)
 ## Found in Preferences. The displayed name of the current project author.
 var author_display_name := ""
 ## Found in Preferences. The real name of the current project author.
@@ -795,22 +765,7 @@ func _init() -> void:
 	# Set Data Directories
 	if OS.has_feature("template"):
 		root_directory = OS.get_executable_path().get_base_dir()
-	if OS.get_name() == "macOS":
-		data_directories.append(
-			root_directory.path_join("../Resources").path_join(CONFIG_SUBDIR_NAME)
-		)
 	data_directories.append(root_directory.path_join(CONFIG_SUBDIR_NAME))
-	if is_linux_or_bsd():
-		# Checks the list of files var, and processes them.
-		if OS.has_environment("XDG_DATA_DIRS"):
-			var raw_env_var := OS.get_environment("XDG_DATA_DIRS")  # includes empties.
-			var unappended_subdirs := raw_env_var.split(":", true)
-			for unapp_subdir in unappended_subdirs:
-				data_directories.append(unapp_subdir.path_join(HOME_SUBDIR_NAME))
-		else:
-			# Create defaults
-			for default_loc in ["/usr/local/share", "/usr/share"]:
-				data_directories.append(default_loc.path_join(HOME_SUBDIR_NAME))
 	# Set Favourites list in File dialogs
 	if config_cache.has_section_key("FileDialog", "favourite_paths"):
 		FileDialog.set_favorite_list(
@@ -820,14 +775,6 @@ func _init() -> void:
 		FileDialog.set_recent_list(
 			config_cache.get_value("FileDialog", "recent_paths", PackedStringArray())
 		)
-	# Load overridden project settings
-	if ProjectSettings.get_setting("display/window/tablet_driver") == "winink":
-		tablet_driver = 1
-	single_window_mode = ProjectSettings.get_setting("display/window/subwindows/embed_subwindows")
-	window_transparency = ProjectSettings.get_setting(
-		"display/window/per_pixel_transparency/allowed"
-	)
-	dummy_audio_driver = ProjectSettings.get_setting("audio/driver/driver") == "Dummy"
 
 
 func _ready() -> void:
@@ -863,24 +810,15 @@ func _ready() -> void:
 					update_grids(value)
 			else:
 				set(pref, value)
-	if OS.is_sandboxed() or OS.has_feature("mobile"):
-		Global.use_native_file_dialogs = true
+	Global.use_native_file_dialogs = true
 	current_project.initialize_attribution_data()
 	await get_tree().process_frame
 	project_switched.emit()
 	canvas.color_index.enabled = show_pixel_indices  # Initialize color index preview
 
 
-func is_linux_or_bsd() -> bool:
-	return OS.get_name() in ["Linux", "FreeBSD", "NetBSD", "OpenBSD", "BSD"]
-
-
-## Returns [code]true[/code] if the platform's selection modifier is held down.
-## On macOS this is the Command key, because Control+left-click is interpreted by the
-## operating system as a right-click; on every other platform it is the Control key.
+## Returns [code]true[/code] if the selection modifier (the Control key) is held down.
 func is_ctrl_or_cmd_pressed() -> bool:
-	if OS.get_name() == "macOS":
-		return Input.is_key_pressed(KEY_META)
 	return Input.is_action_pressed(&"ctrl")
 
 
@@ -895,24 +833,10 @@ func get_system_info() -> String:
 		distribution_name = "Other"
 
 	var distribution_version := OS.get_version_alias()
-	var display_session_type := ""
 	var display_driver_window_mode := ""
 	var distribution_display_session_type := distribution_name
-	if is_linux_or_bsd():
-		var xdg_session_type := OS.get_environment("XDG_SESSION_TYPE")
-		var space_char := ord(" ")
-		display_session_type = xdg_session_type.capitalize().remove_char(space_char)
-		display_driver_window_mode = (
-			DisplayServer.get_name().capitalize().remove_char(space_char) + " display driver"
-		)
 	if not distribution_version.is_empty():
 		distribution_display_session_type += " " + distribution_version
-
-	if not display_session_type.is_empty():
-		distribution_display_session_type += " on " + display_session_type
-
-	if not display_driver_window_mode.is_empty():
-		display_driver_window_mode += ", "
 
 	var embedded_subwindows := get_viewport().is_embedding_subwindows()
 	display_driver_window_mode += "Single-window" if embedded_subwindows else "Multi-window"
@@ -923,7 +847,6 @@ func get_system_info() -> String:
 	else:
 		display_driver_window_mode += ", " + str(screen_count) + " monitors"
 
-	var is_sandboxed := "is sandboxed" if OS.is_sandboxed() else "is not sandboxed"
 	var processor_name := OS.get_processor_name()
 	var processor_count := OS.get_processor_count()
 	var system_ram: int = OS.get_memory_info()["physical"]
@@ -933,7 +856,6 @@ func get_system_info() -> String:
 	info.push_back(pixelorama_ver)
 	info.push_back(distribution_display_session_type)
 	info.push_back(display_driver_window_mode)
-	info.push_back(is_sandboxed)
 	info.push_back("%s (%d threads)" % [processor_name, processor_count])
 	if system_ram > 0:
 		info.push_back("%s memory" % String.humanize_size(system_ram))
@@ -1742,20 +1664,3 @@ func on_resource_proj_updated(resource_proj: ResourceProject, value_changed: Cal
 		value_changed.call(ImageTexture.create_from_image(updated_image))
 	if not warnings.is_empty():
 		popup_error(warnings)
-
-
-## This method is used to write project setting overrides to the override.cfg file, located
-## in the same directory as the executable.
-## We use this method instead of [method ProjectSettings.save_custom] because that copies
-## the entire project.godot file into override.cfg, which causes issues
-## because software updates will not be able to make changes to the project settings for
-## users who have already saved an override.cfg file, leading into confusion.
-## To avoid this issue, we just write the lines we want to the override.cfg file.
-func _save_to_override_file() -> void:
-	var file := FileAccess.open(OVERRIDE_FILE, FileAccess.WRITE)
-	file.store_line("[display]\n")
-	file.store_line("window/subwindows/embed_subwindows=%s" % single_window_mode)
-	file.store_line("window/per_pixel_transparency/allowed=%s" % window_transparency)
-	if dummy_audio_driver:
-		file.store_line("[audio]\n")
-		file.store_line('driver/driver="Dummy"')

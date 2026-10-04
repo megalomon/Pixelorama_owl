@@ -13,22 +13,15 @@ var image_exports: Array[Export.FileFormat] = [
 	Export.FileFormat.WEBP,
 	Export.FileFormat.JPEG,
 	Export.FileFormat.SVG,
-	Export.FileFormat.EXR,
 	Export.FileFormat.GIF,
 	Export.FileFormat.ASE,
 	Export.FileFormat.APNG,
-	Export.FileFormat.MP4,
-	Export.FileFormat.AVI,
-	Export.FileFormat.OGV,
-	Export.FileFormat.MKV,
-	Export.FileFormat.WEBM,
 ]
 var spritesheet_exports: Array[Export.FileFormat] = [
 	Export.FileFormat.PNG,
 	Export.FileFormat.WEBP,
 	Export.FileFormat.JPEG,
 	Export.FileFormat.SVG,
-	Export.FileFormat.EXR
 ]
 
 var _preview_images: Array[Export.ProcessedImage]
@@ -82,15 +75,9 @@ func _ready() -> void:
 	crop_image_option.add_item("Selection", Export.CropMode.SELECTION)
 	tabs.add_tab("Image")
 	tabs.add_tab("Spritesheet")
-	if OS.get_name() == "Windows":
-		file_exists_alert_popup.add_button("Cancel Export", true, "cancel")
-	else:
-		file_exists_alert_popup.add_button("Cancel Export", false, "cancel")
-		if OS.get_name() == "Android":
-			path_dialog_popup.file_mode = FileDialog.FILE_MODE_OPEN_DIR
-			directory_path_label.visible = true
-		elif OS.get_name() == "Web":
-			file_format_options.show()
+	file_exists_alert_popup.add_button("Cancel Export", false, "cancel")
+	path_dialog_popup.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+	directory_path_label.visible = true
 	# TODO: Remove the loop when https://github.com/godotengine/godot/issues/92848 gets fixed.
 	for dialog_child in path_dialog_popup.find_children("", "Window", true, false):
 		if dialog_child is Window:
@@ -128,10 +115,7 @@ func show_tab() -> void:
 	set_preview()
 	update_dimensions_label()
 	tabs.current_tab = export_profile.current_tab
-	if OS.get_name() == "Web":
-		get_tree().call_group("NotHTML5", "hide")
-	elif OS.get_name() == "Android":
-		get_tree().call_group("NotAndroid", "hide")
+	get_tree().call_group("NotAndroid", "hide")
 
 
 func _set_project_export_settings(
@@ -248,32 +232,20 @@ func _set_file_format_selector_suitable_file_formats(formats: Array[Export.FileF
 	var export_profile := project.export_profile
 	file_format_options.clear()
 	path_dialog_popup.clear_filters()
-	var ffmpeg_installed := Export.is_ffmpeg_installed()
 	var needs_update := true
 	for i in formats:
-		if i == Export.FileFormat.EXR:
-			if OS.get_name() == "Android" or OS.get_name() == "Web":
-				continue
 		if export_profile.file_format == i:
 			needs_update = false
-		if not ffmpeg_installed:
-			if i in Export.ffmpeg_formats:
-				continue
 		var label := Export.file_format_string(i) + "; " + Export.file_format_description(i)
 		file_format_options.add_item(label, i)
-		if OS.get_name() != "Android":
-			path_dialog_popup.add_filter(
-				"*" + Export.file_format_string(i), Export.file_format_description(i)
-			)
 	if needs_update:
 		_set_project_export_settings(
 			export_profile.directory_path, export_profile.file_name, formats[0]
 		)
 	file_format_options.selected = file_format_options.get_item_index(export_profile.file_format)
-	if OS.get_name() == "Android":
-		var file_ext_str := "*" + Export.file_format_string(export_profile.file_format)
-		var file_format_description := Export.file_format_description(export_profile.file_format)
-		path_dialog_popup.add_filter(file_ext_str, file_format_description)
+	var file_ext_str := "*" + Export.file_format_string(export_profile.file_format)
+	var file_format_description := Export.file_format_description(export_profile.file_format)
+	path_dialog_popup.add_filter(file_ext_str, file_format_description)
 
 
 func create_frame_tag_list() -> void:
@@ -353,12 +325,6 @@ func _on_about_to_popup() -> void:
 	Global.transform_content_confirmed.emit()
 	var project := Global.current_project
 	var export_profile := project.export_profile
-	# If we're on Web, don't let the user change the directory path
-	if OS.get_name() == "Web":
-		_set_project_export_settings(
-			"user://", export_profile.file_name, export_profile.file_format
-		)
-
 	if export_profile.directory_path.is_empty():
 		var default_directory_path: String = Global.config_cache.get_value(
 			"data", "current_dir", OS.get_system_dir(OS.SYSTEM_DIR_DESKTOP)
@@ -387,12 +353,7 @@ func _on_about_to_popup() -> void:
 
 	directory_path_label.text = export_profile.directory_path
 	var file_ext := Export.file_format_string(export_profile.file_format)
-	if OS.get_name() == "Web" or OS.get_name() == "Android":
-		path_line_edit.text = export_profile.file_name + file_ext
-	else:
-		path_line_edit.text = (
-			export_profile.directory_path.path_join(export_profile.file_name) + file_ext
-		)
+	path_line_edit.text = export_profile.file_name + file_ext
 	path_dialog_popup.current_dir = export_profile.directory_path
 	Export.cache_blended_frames()
 	show_tab()
@@ -490,8 +451,6 @@ func _on_path_line_edit_text_changed(new_text: String) -> void:
 	var project := Global.current_project
 	var export_profile := project.export_profile
 	var directory_path := export_profile.directory_path
-	if OS.get_name() != "Android":
-		directory_path = new_text.get_base_dir()
 	var file_name := new_text.get_file().get_basename()
 	var file_format := Export.get_file_format_from_extension(new_text.get_extension())
 	_set_project_export_settings(directory_path, file_name, file_format)
@@ -540,10 +499,9 @@ func _on_file_format_item_selected(index: int) -> void:
 	path = path.replace("." + path.get_extension(), ext_string)
 	path_line_edit.text = path
 	_on_path_line_edit_text_changed(path)
-	if OS.get_name() == "Android":
-		path_dialog_popup.clear_filters()
-		var file_format_description := Export.file_format_description(id)
-		path_dialog_popup.add_filter("*" + ext_string, file_format_description)
+	path_dialog_popup.clear_filters()
+	var file_format_description := Export.file_format_description(id)
+	path_dialog_popup.add_filter("*" + ext_string, file_format_description)
 
 
 ## Overwrite existing file

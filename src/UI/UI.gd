@@ -1,10 +1,5 @@
 extends Panel
 
-const UI_TRANSPARENCY_SHADER := preload("uid://bwtsxcdoe2ps1")
-
-var shader_disabled := false
-var transparency_material: ShaderMaterial
-
 @onready var dockable_container: DockableContainer = $DockableContainer
 @onready var main_canvas_container := find_child("Main Canvas") as Container
 @onready var right_tool_options: ScrollContainer = $"DockableContainer/Right Tool Options"
@@ -15,12 +10,6 @@ var transparency_material: ShaderMaterial
 func _ready() -> void:
 	Global.cel_switched.connect(_on_cel_switched)
 	Global.single_tool_mode_changed.connect(_on_single_tool_mode_changed)
-	if Global.window_transparency:
-		transparency_material = ShaderMaterial.new()
-		transparency_material.shader = UI_TRANSPARENCY_SHADER
-		material = transparency_material
-		main_canvas_container.property_list_changed.connect(_re_configure_shader)
-		update_transparent_shader()
 	await Global.pixelorama_opened
 	if Global.single_tool_mode:
 		dockable_container.set_control_hidden.call_deferred(right_tool_options, true)
@@ -36,34 +25,3 @@ func _on_cel_switched() -> void:
 
 func _on_single_tool_mode_changed(mode: bool) -> void:
 	dockable_container.set_control_hidden(right_tool_options, mode)
-
-
-func _re_configure_shader() -> void:
-	await get_tree().process_frame
-	if get_window() != main_canvas_container.get_window():
-		material = null
-		shader_disabled = true
-	else:
-		if shader_disabled:
-			material = transparency_material
-			shader_disabled = false
-
-
-func _on_main_canvas_item_rect_changed() -> void:
-	update_transparent_shader()
-
-
-func _on_main_canvas_visibility_changed() -> void:
-	update_transparent_shader()
-
-
-func update_transparent_shader() -> void:
-	if not is_instance_valid(main_canvas_container) or not is_instance_valid(transparency_material):
-		return
-	# Works independently of the transparency feature
-	var canvas_size: Vector2 = (main_canvas_container.size - Vector2.DOWN * 2) * Global.shrink
-	transparency_material.set_shader_parameter("screen_resolution", get_viewport().size)
-	transparency_material.set_shader_parameter(
-		"position", main_canvas_container.global_position * Global.shrink
-	)
-	transparency_material.set_shader_parameter("size", canvas_size)

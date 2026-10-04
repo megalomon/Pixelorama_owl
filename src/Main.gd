@@ -11,8 +11,6 @@ var is_quitting_on_save := false
 var is_writing_text := false
 var changed_projects_on_quit: Array[Project]
 var cursor_image := preload("res://assets/graphics/cursor.png")
-## Used to download an image when dragged and dropped directly from a browser into Pixelorama
-var url_to_download := ""
 var splash_dialog: AcceptDialog:
 	get:
 		if not is_instance_valid(splash_dialog):
@@ -27,170 +25,14 @@ var _last_session_last_project := ""
 @onready var open_sprite_dialog := $Dialogs/OpenSprite as FileDialog
 ## Dialog used to save project (.pxo) files.
 @onready var save_sprite_dialog := $Dialogs/SaveSprite as FileDialog
-@onready var save_sprite_html5: ConfirmationDialog = $Dialogs/SaveSpriteHTML5
 @onready var tile_mode_offsets_dialog: ConfirmationDialog = $Dialogs/TileModeOffsetsDialog
 @onready var quit_dialog: ConfirmationDialog = $Dialogs/QuitDialog
 @onready var quit_and_save_dialog: ConfirmationDialog = $Dialogs/QuitAndSaveDialog
 @onready var restore_session_confirmation_dialog := (
 	$Dialogs/RestoreSessionConfirmationDialog as ConfirmationDialog
 )
-@onready var download_confirmation := $Dialogs/DownloadImageConfirmationDialog as ConfirmationDialog
 @onready var left_cursor: Sprite2D = $LeftCursor
 @onready var right_cursor: Sprite2D = $RightCursor
-@onready var image_request := $ImageRequest as HTTPRequest
-
-
-class CLI:
-	static var args_list := {
-		["rel-dir="]:
-		[dummy, "(Default='PWD') The directory using which relative paths are resolved."],
-		["--version", "--pixelorama-version"]:
-		[CLI.print_version, "Prints current Pixelorama version"],
-		["--size"]: [CLI.print_project_size, "Prints size of the given project"],
-		["--framecount"]: [CLI.print_frame_count, "Prints total frames in the current project"],
-		["--export", "-e"]: [CLI.enable_export, "Indicates given project should be exported"],
-		["--spritesheet", "-s"]:
-		[CLI.enable_spritesheet, "Indicates given project should be exported as spritesheet"],
-		["--output", "-o"]: [CLI.set_output, "[path] Name of output file (with extension)"],
-		["--scale"]: [CLI.set_export_scale, "[integer] Scales up the export image by a number"],
-		["--frames", "-f"]: [CLI.set_frames, "[integer-integer] Used to specify frame range"],
-		["--direction", "-d"]: [CLI.set_direction, "[0, 1, 2] Specifies direction"],
-		["--json"]: [CLI.set_json, "Export the JSON data of the project"],
-		["--split-layers"]: [CLI.set_split_layers, "Each layer exports separately"],
-		["--sheet_layers_as_separate_files"]:
-		[
-			CLI.set_sheet_layers_as_separate_files,
-			"Spritesheets in split layer mode will export multiple files for each layer."
-		],
-		["--help", "-h", "-?"]: [CLI.generate_help, "Displays this help page"],
-		["--scene"]: [CLI.dummy, "Used internally by Godot."]
-	}
-
-	static func generate_help(_project: Project, _next_arg: String):
-		# gdlint: ignore=max-line-length
-		var win_path_msg := "NOTE: If your files are using relative paths (e.g. example.pxo instead of path/to/example.pxo) it is recommended to set [color=green]rel-dir='%CD%'[/color] (for Windows).\n"
-		var help := str(
-			(
-				"""
- =========================================================================\n
-Help for Pixelorama's CLI.
-
-Usage:
-\t[b]%s[/b] [color=orange][SYSTEM OPTIONS][/color] -- [color=green][USER OPTIONS][/color] [FILES]...
-
-Use -h in place of [SYSTEM OPTIONS] to see [SYSTEM OPTIONS].
-Or use -h in place of [USER OPTIONS] to see [USER OPTIONS].
-
-some useful [b][SYSTEM OPTIONS][/b] are:
-[color=orange]--headless[/color]     Run in headless mode.
-[color=orange]--quit[/color]         Close pixelorama after current command.
-
-
-[b][USER OPTIONS][/b]:\n
-(The terms in [ ] reflect the valid type for corresponding argument).
-%s
-"""
-				% [
-					OS.get_executable_path().get_file(),
-					win_path_msg if OS.get_name() == "Windows" else ""
-				]
-			)
-		)
-		for command_group: Array in args_list.keys():
-			help += str(
-				"[color=green][b]",
-				var_to_str(command_group).replace("[", "").replace("]", "").replace('"', ""),
-				"[/b][/color]",
-				"\t\t".c_unescape(),
-				args_list[command_group][1],
-				"\n".c_unescape()
-			)
-		help += "========================================================================="
-		print_rich(help)
-
-	## Dedicated place for command line args callables
-	static func print_version(_project: Project, _next_arg: String) -> void:
-		print(Global.current_version)
-
-	static func print_project_size(project: Project, _next_arg: String) -> void:
-		print(project.size)
-
-	static func print_frame_count(project: Project, _next_arg: String) -> void:
-		print(project.frames.size())
-
-	static func enable_export(_project: Project, _next_arg: String):
-		return true
-
-	static func enable_spritesheet(project: Project, _next_arg: String):
-		project.export_profile.current_tab = Export.ExportTab.SPRITESHEET
-		return true
-
-	static func set_output(project: Project, next_arg: String) -> void:
-		if not next_arg.is_empty():
-			project.file_name = next_arg.get_file().get_basename()
-			var directory_path = next_arg.get_base_dir()
-			if directory_path != ".":
-				project.export_profile.directory_path = directory_path
-			var extension := next_arg.get_extension()
-			project.export_profile.file_format = Export.get_file_format_from_extension(extension)
-
-	static func set_export_scale(project: Project, next_arg: String) -> void:
-		if not next_arg.is_empty():
-			if next_arg.is_valid_float():
-				project.export_profile.resize = next_arg.to_float() * 100
-
-	static func set_frames(project: Project, next_arg: String) -> void:
-		if not next_arg.is_empty():
-			var export_profile := project.export_profile
-			if next_arg.contains("-"):
-				var frame_numbers := next_arg.split("-")
-				if frame_numbers.size() > 1:
-					project.selected_cels.clear()
-					var frame_number_1 := 0
-					if frame_numbers[0].is_valid_int():
-						frame_number_1 = frame_numbers[0].to_int() - 1
-					frame_number_1 = clampi(frame_number_1, 0, project.frames.size() - 1)
-					var frame_number_2 := project.frames.size() - 1
-					if frame_numbers[1].is_valid_int():
-						frame_number_2 = frame_numbers[1].to_int() - 1
-					frame_number_2 = clampi(frame_number_2, 0, project.frames.size() - 1)
-					for frame in range(frame_number_1, frame_number_2 + 1):
-						project.selected_cels.append([frame, project.current_layer])
-						project.change_cel(frame)
-						export_profile.frame_current_tag = Export.ExportFrames.SELECTED_FRAMES
-			elif next_arg.is_valid_int():
-				var frame_number := next_arg.to_int() - 1
-				frame_number = clampi(frame_number, 0, project.frames.size() - 1)
-				project.selected_cels = [[frame_number, project.current_layer]]
-				project.change_cel(frame_number)
-				export_profile.frame_current_tag = Export.ExportFrames.SELECTED_FRAMES
-
-	static func set_direction(project: Project, next_arg: String) -> void:
-		var export_profile := project.export_profile
-		if not next_arg.is_empty():
-			next_arg = next_arg.to_lower()
-			if next_arg == "0" or next_arg.contains("forward"):
-				export_profile.direction = Export.AnimationDirection.FORWARD
-			elif next_arg == "1" or next_arg.contains("backward"):
-				export_profile.direction = Export.AnimationDirection.BACKWARDS
-			elif next_arg == "2" or next_arg.contains("ping"):
-				export_profile.direction = Export.AnimationDirection.PING_PONG
-			else:
-				print(Export.AnimationDirection.keys()[export_profile.direction])
-		else:
-			print(Export.AnimationDirection.keys()[export_profile.direction])
-
-	static func set_json(project: Project, _next_arg: String) -> void:
-		project.export_profile.export_json = true
-
-	static func set_split_layers(project: Project, _next_arg: String) -> void:
-		project.export_profile.split_layers = true
-
-	static func set_sheet_layers_as_separate_files(project: Project, _next_arg: String) -> void:
-		project.export_profile.sheet_layers_as_separate_files = true
-
-	static func dummy(_project: Project, _next_arg: String) -> void:
-		pass
 
 
 func _init() -> void:
@@ -222,8 +64,6 @@ func _ready() -> void:
 
 	quit_and_save_dialog.add_button("Exit without saving", false, "ExitWithoutSaving")
 	_last_session_last_project = get_last_project_path()
-	_handle_cmdline_arguments()
-	get_tree().root.files_dropped.connect(_on_files_dropped)
 	if OS.get_name() == "Android":
 		var intent_data := Applinks.get_data()
 		if not intent_data.is_empty():
@@ -272,20 +112,7 @@ func _project_switched() -> void:
 # Taken from
 # https://github.com/godotengine/godot/blob/master/editor/settings/editor_settings.cpp#L1801
 func _get_auto_display_scale() -> float:
-	if OS.get_name() == "macOS" or OS.get_name() == "Android":
-		return DisplayServer.screen_get_max_scale()
-
-	var dpi := DisplayServer.screen_get_dpi()
-	var smallest_dimension := mini(
-		DisplayServer.screen_get_size().x, DisplayServer.screen_get_size().y
-	)
-	if dpi >= 192 && smallest_dimension >= 1400:
-		return 2.0  # hiDPI display.
-	elif smallest_dimension >= 1700:
-		return 1.5  # Likely a hiDPI display, but we aren't certain due to the returned DPI.
-	# TODO: Return 0.75 if smallest_dimension <= 800, once we make icons looks good
-	# when scaled to non-integer display scale values. Might need SVGs.
-	return 1.0
+	return DisplayServer.screen_get_max_scale()
 
 
 func _handle_layout_files() -> void:
@@ -320,31 +147,6 @@ func _setup_application_window_size() -> void:
 	if Global.font_size != theme.default_font_size:
 		theme.default_font_size = Global.font_size
 		theme.set_font_size("font_size", "HeaderSmall", Global.font_size + 2)
-
-	if OS.get_name() == "Web":
-		return
-
-	# Restore the window position/size if values are present in the configuration cache
-	if Global.config_cache.has_section_key("window", "screen"):
-		# Restore the window configuration if the screen in cache is not available
-		if (
-			DisplayServer.get_screen_count()
-			< (Global.config_cache.get_value("window", "screen") + 1)
-		):
-			return
-		get_window().current_screen = Global.config_cache.get_value("window", "screen")
-	if Global.config_cache.has_section_key("window", "maximized"):
-		get_window().mode = (
-			Window.MODE_MAXIMIZED
-			if (Global.config_cache.get_value("window", "maximized"))
-			else Window.MODE_WINDOWED
-		)
-
-	if !(get_window().mode == Window.MODE_MAXIMIZED):
-		if Global.config_cache.has_section_key("window", "position"):
-			get_window().position = Global.config_cache.get_value("window", "position")
-		if Global.config_cache.has_section_key("window", "size"):
-			get_window().size = Global.config_cache.get_value("window", "size")
 	set_mobile_fullscreen_safe_area()
 
 
@@ -359,8 +161,6 @@ func set_display_scale() -> void:
 
 
 func set_mobile_fullscreen_safe_area() -> void:
-	if not OS.has_feature("mobile"):
-		return
 	await get_tree().process_frame
 	var is_fullscreen := (
 		(get_window().mode == Window.MODE_EXCLUSIVE_FULLSCREEN)
@@ -402,81 +202,6 @@ func _show_splash_screen() -> void:
 
 		splash_dialog.popup_centered_clamped()  # Splash screen
 		modulate = Color(0.5, 0.5, 0.5)
-
-
-func _handle_cmdline_arguments() -> void:
-	var args := OS.get_cmdline_args()
-	var working_directory := ""
-	var wdir_searching := false
-	args.append_array(OS.get_cmdline_user_args())
-	if args.is_empty():
-		return
-	# Load the files first
-	for arg in args:
-		if arg.begins_with("lospec-palette://"):
-			Palettes.import_lospec_palette(arg)
-			break
-		if arg.begins_with("rel-dir=") or wdir_searching:
-			working_directory = arg.trim_prefix("rel-dir=")
-			if not DirAccess.dir_exists_absolute(working_directory):
-				wdir_searching = true
-				working_directory = ""
-			else:
-				wdir_searching = false
-			continue
-		var file_path := arg
-		# if we think the file could be a potential relative path it can mean two things:
-		# 1. The file is relative to executable
-		# 2. The file is relative to the working directory.
-		if file_path.is_relative_path():
-			# we first try to convert it to be relative to executable
-			file_path = OS.get_executable_path().get_base_dir().path_join(arg)
-			if !FileAccess.file_exists(file_path):
-				# it is not relative to executable so we have to convert it to an
-				# absolute path instead (this is when file is relative to working directory)
-				var pwd := OS.get_environment("PWD")
-				if not working_directory.is_empty():
-					pwd = working_directory
-				file_path = pwd.path_join(arg)
-		# Do one last failsafe to see everything is in order.
-		if FileAccess.file_exists(file_path):
-			# If a last session is being opened through command line then clear it
-			if _last_session_last_project == file_path:  # Pixelorama project file
-				_last_session_last_project = ""
-			OpenSave.handle_loading_file(file_path)
-
-	var project := Global.current_project
-	# True when exporting from the CLI.
-	# Exporting should be done last, this variable helps with that
-	var should_export := false
-
-	var parse_dic := {}
-	for command_group: Array in CLI.args_list.keys():
-		for command: String in command_group:
-			parse_dic[command] = CLI.args_list[command_group][0]
-	for i in args.size():  # Handle the rest of the CLI arguments
-		var arg := args[i]
-		var next_argument := ""
-		if i + 1 < args.size():
-			next_argument = args[i + 1]
-		if arg.begins_with("-") or arg.begins_with("--"):
-			if arg in parse_dic.keys():
-				var callable: Callable = parse_dic[arg]
-				var output = callable.call(project, next_argument)
-				if typeof(output) == TYPE_BOOL:
-					should_export = output
-			else:
-				print("==========")
-				print("Unknown option: %s" % arg)
-				for compare_arg in parse_dic.keys():
-					if arg.similarity(compare_arg) >= 0.4:
-						print("Similar option: %s" % compare_arg)
-				print("==========")
-				should_export = false
-				get_tree().quit()
-				break
-	if should_export:
-		Export.external_export(project)
 
 
 func _on_applinks_data_received(uri: String) -> void:
@@ -525,23 +250,6 @@ func _notification(what: int) -> void:
 			Tools.quick_assign_tool_revert(MOUSE_BUTTON_LEFT)
 
 
-func _on_files_dropped(files: PackedStringArray) -> void:
-	for file in files:
-		if not FileAccess.file_exists(file):
-			# If the file doesn't exist, it could be a URL. This can occur when dragging
-			# and dropping an image directly from the browser into Pixelorama.
-			# For security reasons, ask the user if they want to confirm the image download.
-			download_confirmation.dialog_text = (
-				tr("Do you want to download the image from %s?") % file
-			)
-			download_confirmation.popup_centered_clamped()
-			url_to_download = file
-		else:
-			OpenSave.handle_loading_file(file)
-	if splash_dialog.visible:
-		splash_dialog.hide()
-
-
 func get_last_project_path() -> String:
 	# Check if any project was saved or opened last time
 	if Global.config_cache.has_section_key("data", "last_project_path"):
@@ -551,10 +259,6 @@ func get_last_project_path() -> String:
 
 
 func load_last_project(using_previous_session := false) -> void:
-	# NOTE: When projects are loaded through CLI, the last_project_path gets overridden, and we
-	# have to pass an override path in that scenario.
-	if OS.get_name() == "Web":
-		return
 	# Check if any project was saved or opened last time
 	var last_project_path := get_last_project_path()
 	if using_previous_session:
@@ -565,8 +269,6 @@ func load_last_project(using_previous_session := false) -> void:
 
 
 func load_recent_project_file(path: String) -> void:
-	if OS.get_name() == "Web":
-		return
 	# Check if file still exists on disk
 	if FileAccess.file_exists(path):  # If yes then load the file
 		OpenSave.handle_loading_file(path)
@@ -586,14 +288,9 @@ func _on_OpenSprite_files_selected(paths: PackedStringArray) -> void:
 
 func show_save_dialog(project := Global.current_project) -> void:
 	Global.dialog_open(true, true)
-	if OS.get_name() == "Web":
-		save_sprite_html5.popup_centered_clamped()
-		var save_filename_line_edit := save_sprite_html5.get_node("%FileNameLineEdit")
-		save_filename_line_edit.text = project.name
-	else:
-		save_sprite_dialog.current_file = project.name + ".pxo"
-		save_sprite_dialog.popup_centered_clamped()
-		save_file_dialog_opened.emit(true)
+	save_sprite_dialog.current_file = project.name + ".pxo"
+	save_sprite_dialog.popup_centered_clamped()
+	save_file_dialog_opened.emit(true)
 
 
 func _on_SaveSprite_file_selected(path: String) -> void:
@@ -606,23 +303,15 @@ func _on_save_sprite_canceled() -> void:
 	is_quitting_on_save = false
 
 
-func save_project(path: String, through_dialog := true) -> void:
+func save_project(path: String) -> void:
 	var project_to_save := Global.current_project
 	if is_quitting_on_save:
 		project_to_save = changed_projects_on_quit[0]
 	var include_blended := false
-	if OS.get_name() == "Web":
-		if through_dialog:
-			var save_filename_line_edit := save_sprite_html5.get_node("%FileNameLineEdit")
-			project_to_save.name = save_filename_line_edit.text
-		var file_name := project_to_save.name + ".pxo"
-		path = "user://".path_join(file_name)
-		include_blended = save_sprite_html5.get_node("%IncludeBlended").button_pressed
-	else:
-		if save_sprite_dialog.get_selected_options().size() > 0:
-			include_blended = save_sprite_dialog.get_selected_options()[
-				save_sprite_dialog.get_option_name(0)
-			]
+	if save_sprite_dialog.get_selected_options().size() > 0:
+		include_blended = save_sprite_dialog.get_selected_options()[
+			save_sprite_dialog.get_option_name(0)
+		]
 	var success := OpenSave.save_pxo_file(path, false, include_blended, project_to_save)
 	if success:
 		open_sprite_dialog.current_dir = path.get_base_dir()
@@ -707,20 +396,6 @@ func _exit_tree() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
 	Global.config_cache.set_value("window", "layout", Global.layouts.find(main_ui.layout))
-	Global.config_cache.set_value("window", "screen", get_window().current_screen)
-	Global.config_cache.set_value(
-		"window",
-		"maximized",
-		(
-			(get_window().mode == Window.MODE_MAXIMIZED)
-			|| (
-				(get_window().mode == Window.MODE_EXCLUSIVE_FULLSCREEN)
-				or (get_window().mode == Window.MODE_FULLSCREEN)
-			)
-		)
-	)
-	Global.config_cache.set_value("window", "position", get_window().position)
-	Global.config_cache.set_value("window", "size", get_window().size)
 	Global.config_cache.set_value("view_menu", "draw_grid", Global.draw_grid)
 	Global.config_cache.set_value("view_menu", "draw_pixel_grid", Global.draw_pixel_grid)
 	Global.config_cache.set_value("view_menu", "show_pixel_indices", Global.show_pixel_indices)
@@ -744,16 +419,3 @@ func _exit_tree() -> void:
 	Global.config_cache.set_value("FileDialog", "favourite_paths", FileDialog.get_favorite_list())
 	Global.config_cache.set_value("FileDialog", "recent_paths", FileDialog.get_recent_list())
 	Global.config_cache.save(Global.CONFIG_PATH)
-
-
-func _on_download_image_confirmation_dialog_confirmed() -> void:
-	image_request.request(url_to_download)
-
-
-func _on_image_request_request_completed(
-	_result: int, _response_code: int, _headers: PackedStringArray, body: PackedByteArray
-) -> void:
-	var image := OpenSave.load_image_from_buffer(body)
-	if image.is_empty():
-		return
-	OpenSave.handle_loading_image(OS.get_system_dir(OS.SYSTEM_DIR_DESKTOP), image)

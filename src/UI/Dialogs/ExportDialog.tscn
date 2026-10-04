@@ -274,7 +274,7 @@ custom_minimum_size = Vector2(130, 0)
 layout_mode = 2
 mouse_default_cursor_shape = 2
 
-[node name="PathButton" type="Button" parent="VBoxContainer/VSplitContainer/VBoxContainer/FilePath" unique_id=1878336224 groups=["NotHTML5"]]
+[node name="PathButton" type="Button" parent="VBoxContainer/VSplitContainer/VBoxContainer/FilePath" unique_id=1878336224]
 layout_mode = 2
 mouse_default_cursor_shape = 2
 text = "Browse"
@@ -346,7 +346,7 @@ layout_mode = 2
 mouse_default_cursor_shape = 2
 text = "Include frame tags in the file name"
 
-[node name="MultipleAnimationsDirectories" type="CheckBox" parent="VBoxContainer/VSplitContainer/VBoxContainer/AdvancedOptions/GridContainer" unique_id=2068197934 groups=["ExportImageOptions", "ExportMultipleFilesOptions", "NotAndroid", "NotHTML5"]]
+[node name="MultipleAnimationsDirectories" type="CheckBox" parent="VBoxContainer/VSplitContainer/VBoxContainer/AdvancedOptions/GridContainer" unique_id=2068197934 groups=["ExportImageOptions", "ExportMultipleFilesOptions", "NotAndroid"]]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2

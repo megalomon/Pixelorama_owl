@@ -107,15 +107,6 @@ size_flags_horizontal = 3
 mouse_default_cursor_shape = 2
 text = "On"
 
-[node name="FFMPEGPathLabel" type="Label" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Startup/StartupContainer" unique_id=34180567 groups=["DesktopOnly"]]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "FFMPEG path"
-
-[node name="FFMPEGPath" type="LineEdit" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Startup/StartupContainer" unique_id=465096376 groups=["DesktopOnly"]]
-layout_mode = 2
-size_flags_horizontal = 3
-
 [node name="Language" type="VBoxContainer" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide" unique_id=771798959]
 unique_name_in_owner = true
 visible = false
@@ -254,12 +245,12 @@ popup/item_0/id = 0
 popup/item_1/text = "Big"
 popup/item_1/id = 1
 
-[node name="ScreenOrientationLabel" type="Label" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Interface/InterfaceOptions" unique_id=1833295930 groups=["MobileOnly"]]
+[node name="ScreenOrientationLabel" type="Label" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Interface/InterfaceOptions" unique_id=1833295930]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Screen orientation:"
 
-[node name="ScreenOrientationOptionButton" type="OptionButton" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Interface/InterfaceOptions" unique_id=394327867 groups=["MobileOnly"]]
+[node name="ScreenOrientationOptionButton" type="OptionButton" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Interface/InterfaceOptions" unique_id=394327867]
 layout_mode = 2
 mouse_default_cursor_shape = 2
 selected = 0
@@ -291,32 +282,6 @@ text = "Show notification labels"
 [node name="ShowNotificationCheckBox" type="CheckBox" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Interface/InterfaceOptions" unique_id=1242688440]
 layout_mode = 2
 size_flags_horizontal = 3
-mouse_default_cursor_shape = 2
-button_pressed = true
-text = "On"
-
-[node name="NativeFileDialogsLabel" type="Label" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Interface/InterfaceOptions" unique_id=1080421200 groups=["NativeFileDialog", "NoSandbox"]]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Use native file dialogs"
-
-[node name="NativeFileDialogs" type="CheckBox" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Interface/InterfaceOptions" unique_id=1686591217 groups=["NativeFileDialog", "NoSandbox"]]
-layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "When this setting is enabled, the native file dialogs of the operating system are being used, instead of Pixelorama's custom ones."
-mouse_default_cursor_shape = 2
-button_pressed = true
-text = "On"
-
-[node name="SingleWindowModeLabel" type="Label" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Interface/InterfaceOptions" unique_id=1448861993 groups=["DesktopOnly"]]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Single window mode"
-
-[node name="SingleWindowMode" type="CheckBox" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Interface/InterfaceOptions" unique_id=1410980692 groups=["DesktopOnly"]]
-layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "When this setting is enabled, Pixelorama's subwindows will be embedded in the main window, otherwise each dialog will be its own separate window."
 mouse_default_cursor_shape = 2
 button_pressed = true
 text = "On"
@@ -1342,32 +1307,6 @@ mouse_default_cursor_shape = 2
 button_pressed = true
 text = "On"
 
-[node name="WindowTransparencyLabel" type="Label" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Performance/PerformanceContainer" unique_id=433249142 groups=["DesktopOnly"]]
-layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "If enabled, the application window can become transparent. This affects performance, so keep it off if you don't need it."
-mouse_filter = 1
-text = "Enable window transparency"
-
-[node name="WindowTransparency" type="CheckBox" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Performance/PerformanceContainer" unique_id=156053227 groups=["DesktopOnly"]]
-layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "If enabled, the application window can become transparent. This affects performance, so keep it off if you don't need it."
-mouse_default_cursor_shape = 2
-text = "On"
-
-[node name="DummyAudioDriverLabel" type="Label" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Performance/PerformanceContainer" unique_id=555036522 groups=["DesktopOnly"]]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 1
-text = "Use dummy audio driver"
-
-[node name="DummyAudioDriver" type="CheckBox" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Performance/PerformanceContainer" unique_id=1009268996 groups=["DesktopOnly"]]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_default_cursor_shape = 2
-text = "On"
-
 [node name="Attribution" type="VBoxContainer" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide" unique_id=1483485289]
 visible = false
 layout_mode = 2
@@ -1474,43 +1413,6 @@ layout_mode = 2
 text = "Choose from presets"
 flat = false
 
-[node name="Drivers" type="VBoxContainer" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide" unique_id=1209566191]
-visible = false
-layout_mode = 2
-
-[node name="DriversHeader" type="HBoxContainer" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Drivers" unique_id=124834766 groups=["HeaderLabels"]]
-layout_mode = 2
-theme_override_constants/separation = 0
-
-[node name="Label" type="Label" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Drivers/DriversHeader" unique_id=1076476179]
-layout_mode = 2
-theme_type_variation = &"HeaderSmall"
-text = "Drivers"
-
-[node name="HSeparator" type="HSeparator" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Drivers/DriversHeader" unique_id=1211618303]
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-
-[node name="DriversContainer" type="GridContainer" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Drivers" unique_id=1405615463]
-layout_mode = 2
-columns = 3
-
-[node name="TabletDriverLabel" type="Label" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Drivers/DriversContainer" unique_id=48446239]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Tablet driver:"
-
-[node name="TabletDriver" type="OptionButton" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Drivers/DriversContainer" unique_id=1350253988]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-tooltip_text = "Specifies the tablet driver being used on Windows. If you have Windows Ink enabled, select winink."
-mouse_default_cursor_shape = 2
-
 [node name="Extensions" type="VBoxContainer" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide" unique_id=326880860 node_paths=PackedStringArray("preferences_dialog", "add_extension_file_dialog")]
 unique_name_in_owner = true
 visible = false
@@ -1561,11 +1463,6 @@ layout_mode = 2
 mouse_default_cursor_shape = 2
 disabled = true
 text = "Uninstall"
-
-[node name="OpenFolderButton" type="Button" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Extensions/HBoxContainer" unique_id=1324879976 groups=["DesktopOnly"]]
-layout_mode = 2
-mouse_default_cursor_shape = 2
-text = "Open Folder"
 
 [node name="Cursors" type="VBoxContainer" parent="HSplitContainer/VBoxContainer/ScrollContainer/RightSide" unique_id=1215092020]
 visible = false
@@ -1854,7 +1751,6 @@ dialog_text = "Are you sure you want to reset the selected options? There will b
 [connection signal="pressed" from="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Extensions/HBoxContainer/AddExtensionButton" to="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Extensions" method="_on_AddExtensionButton_pressed"]
 [connection signal="pressed" from="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Extensions/HBoxContainer/EnableButton" to="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Extensions" method="_on_EnableButton_pressed"]
 [connection signal="pressed" from="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Extensions/HBoxContainer/UninstallButton" to="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Extensions" method="_on_UninstallButton_pressed"]
-[connection signal="pressed" from="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Extensions/HBoxContainer/OpenFolderButton" to="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Extensions" method="_on_OpenFolderButton_pressed"]
 [connection signal="pressed" from="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Reset/ResetButton" to="." method="_on_reset_button_pressed"]
 [connection signal="files_selected" from="AddExtensionFileDialog" to="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Extensions" method="_on_AddExtensionFileDialog_files_selected"]
 [connection signal="confirmed" from="DeleteExtensionConfirmation" to="HSplitContainer/VBoxContainer/ScrollContainer/RightSide/Extensions" method="_on_delete_confirmation_confirmed"]

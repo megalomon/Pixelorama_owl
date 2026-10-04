@@ -5,11 +5,14 @@ enum ExportTab { IMAGE, SPRITESHEET }
 enum Orientation { COLUMNS, ROWS, TAGS_BY_ROW, TAGS_BY_COLUMN }
 enum AnimationDirection { FORWARD, BACKWARDS, PING_PONG }
 ## See file_format_string, file_format_description, and ExportDialog.gd
+## NOTE: EXR and the video formats (MP4 to WEBM) are not offered on Android (upstream never
+## offered EXR there, and video export needs FFmpeg). They are kept so that the enum values
+## stay unchanged, as they are stored in project files and used by extensions.
 enum FileFormat { PNG, WEBP, JPEG, SVG, EXR, GIF, ASE, APNG, MP4, AVI, OGV, MKV, WEBM }
 enum { VISIBLE_LAYERS, SELECTED_LAYERS }
 enum ExportFrames { ALL_FRAMES, SELECTED_FRAMES }
 
-## This path is used to temporarily store png files that FFMPEG uses to convert them to video
+## This path is used to temporarily store files, such as the scenes of 3D layers.
 var temp_path := OS.get_temp_dir().path_join("pixelorama_tmp")
 
 ## List of animated formats
@@ -17,15 +20,6 @@ var animated_formats := [
 	FileFormat.GIF,
 	FileFormat.ASE,
 	FileFormat.APNG,
-	FileFormat.MP4,
-	FileFormat.AVI,
-	FileFormat.OGV,
-	FileFormat.MKV,
-	FileFormat.WEBM
-]
-
-var ffmpeg_formats := [
-	FileFormat.MP4, FileFormat.AVI, FileFormat.OGV, FileFormat.MKV, FileFormat.WEBM
 ]
 ## A dictionary of [enum FileFormat] enums and their file extensions and short descriptions.
 var file_format_dictionary: Dictionary[FileFormat, Array] = {
@@ -33,15 +27,9 @@ var file_format_dictionary: Dictionary[FileFormat, Array] = {
 	FileFormat.WEBP: [".webp", "WebP Image"],
 	FileFormat.JPEG: [".jpg", "JPG Image"],
 	FileFormat.SVG: [".svg", "SVG Image"],
-	FileFormat.EXR: [".exr", "EXR Image"],
 	FileFormat.GIF: [".gif", "GIF Image"],
 	FileFormat.ASE: [".aseprite", "Aseprite Project"],
 	FileFormat.APNG: [".apng", "APNG Image"],
-	FileFormat.MP4: [".mp4", "MPEG-4 Video"],
-	FileFormat.AVI: [".avi", "AVI Video"],
-	FileFormat.OGV: [".ogv", "OGV Video"],
-	FileFormat.MKV: [".mkv", "Matroska Video"],
-	FileFormat.WEBM: [".webm", "WebM Video"],
 }
 
 ## A dictionary of custom exporter generators (received from extensions)
@@ -583,13 +571,9 @@ func export_processed_images(
 	if export_profile.export_json:
 		var json := JSON.stringify(project.serialize())
 		var json_file_name := project.name + ".json"
-		if OS.has_feature("web"):
-			var json_buffer := json.to_utf8_buffer()
-			JavaScriptBridge.download_buffer(json_buffer, json_file_name, "application/json")
-		else:
-			var json_path := export_profile.directory_path.path_join(json_file_name)
-			var json_file := FileAccess.open(json_path, FileAccess.WRITE)
-			json_file.store_string(json)
+		var json_path := export_profile.directory_path.path_join(json_file_name)
+		var json_file := FileAccess.open(json_path, FileAccess.WRITE)
+		json_file.store_string(json)
 	# override if a custom export is chosen
 	if export_profile.file_format in custom_exporter_generators.keys():
 		# Divert the path to the custom exporter instead
@@ -615,78 +599,47 @@ func export_processed_images(
 			return result
 
 	if is_single_file_format(project):
-		if is_using_ffmpeg(export_profile.file_format):
-			var video_exported := export_video(export_paths, project)
-			if not video_exported:
-				Global.popup_error(
-					tr("Video failed to export. Ensure that FFMPEG is installed correctly.")
-				)
-				return false
+		if export_profile.file_format == FileFormat.ASE:
+			AsepriteExporter.save_aseprite_file(project, export_paths[0])
 		else:
-			if export_profile.file_format == FileFormat.ASE:
-				AsepriteExporter.save_aseprite_file(project, export_paths[0])
+			var exporter: AImgIOBaseExporter
+			if export_profile.file_format == FileFormat.APNG:
+				exporter = AImgIOAPNGExporter.new()
 			else:
-				var exporter: AImgIOBaseExporter
-				if export_profile.file_format == FileFormat.APNG:
-					exporter = AImgIOAPNGExporter.new()
-				else:
-					exporter = GIFAnimationExporter.new()
-				var details := {
-					"exporter": exporter,
-					"export_dialog": export_dialog,
-					"export_paths": export_paths,
-					"project": project
-				}
-				if not _multithreading_enabled():
-					export_animated(details)
-				else:
-					if gif_export_thread.is_started():
-						gif_export_thread.wait_to_finish()
-					gif_export_thread.start(export_animated.bind(details))
+				exporter = GIFAnimationExporter.new()
+			var details := {
+				"exporter": exporter,
+				"export_dialog": export_dialog,
+				"export_paths": export_paths,
+				"project": project
+			}
+			if not _multithreading_enabled():
+				export_animated(details)
+			else:
+				if gif_export_thread.is_started():
+					gif_export_thread.wait_to_finish()
+				gif_export_thread.start(export_animated.bind(details))
 	else:
 		for i in range(processed_images.size()):
-			if OS.has_feature("web"):
-				var buffer: PackedByteArray
-				var file_name := export_paths[i].get_file()
-				var mimetype := ""
-				if export_profile.file_format == FileFormat.WEBP:
-					buffer = processed_images[i].image.save_webp_to_buffer()
-					mimetype = "image/webp"
-				elif export_profile.file_format == FileFormat.JPEG:
-					buffer = processed_images[i].image.save_jpg_to_buffer()
-					mimetype = "image/jpeg"
-				elif export_profile.file_format == FileFormat.SVG:
-					var svg_str := image_to_svg(processed_images[i].image)
-					buffer = svg_str.to_utf8_buffer()
-					mimetype = "image/svg"
-				else:
-					buffer = processed_images[i].image.save_png_to_buffer()
-					mimetype = "image/png"
-
-				JavaScriptBridge.download_buffer(buffer, file_name, mimetype)
-
-			else:
-				var err: Error
-				if export_profile.file_format == FileFormat.PNG:
-					err = processed_images[i].image.save_png(export_paths[i])
-				elif export_profile.file_format == FileFormat.WEBP:
-					err = processed_images[i].image.save_webp(export_paths[i])
-				elif export_profile.file_format == FileFormat.JPEG:
-					err = processed_images[i].image.save_jpg(
-						export_paths[i], export_profile.save_quality
-					)
-				elif export_profile.file_format == FileFormat.SVG:
-					var svg_str := image_to_svg(processed_images[i].image)
-					var svg_file := FileAccess.open(export_paths[i], FileAccess.WRITE)
-					err = FileAccess.get_open_error()
-					svg_file.store_string(svg_str)
-				elif export_profile.file_format == FileFormat.EXR:
-					err = processed_images[i].image.save_exr(export_paths[i])
-				if err != OK:
-					Global.popup_error(
-						tr("File failed to save. Error code %s (%s)") % [err, error_string(err)]
-					)
-					return false
+			var err: Error
+			if export_profile.file_format == FileFormat.PNG:
+				err = processed_images[i].image.save_png(export_paths[i])
+			elif export_profile.file_format == FileFormat.WEBP:
+				err = processed_images[i].image.save_webp(export_paths[i])
+			elif export_profile.file_format == FileFormat.JPEG:
+				err = processed_images[i].image.save_jpg(
+					export_paths[i], export_profile.save_quality
+				)
+			elif export_profile.file_format == FileFormat.SVG:
+				var svg_str := image_to_svg(processed_images[i].image)
+				var svg_file := FileAccess.open(export_paths[i], FileAccess.WRITE)
+				err = FileAccess.get_open_error()
+				svg_file.store_string(svg_str)
+			if err != OK:
+				Global.popup_error(
+					tr("File failed to save. Error code %s (%s)") % [err, error_string(err)]
+				)
+				return false
 
 	Global.notification_label("File(s) exported")
 	# Store settings for quick export and when the dialog is opened again
@@ -706,114 +659,6 @@ func export_processed_images(
 	# we only need to update the current_dir here after the export
 	Global.config_cache.set_value("data", "current_dir", export_profile.directory_path)
 	return true
-
-
-## Uses FFMPEG to export a video
-func export_video(export_paths: PackedStringArray, project: Project) -> bool:
-	DirAccess.make_dir_absolute(temp_path)
-	var video_duration := 0
-	var input_file_path := temp_path.path_join("input.txt")
-	var input_file := FileAccess.open(input_file_path, FileAccess.WRITE)
-	var export_profile := project.export_profile
-	for i in range(processed_images.size()):
-		var temp_file_name := str(i + 1).pad_zeros(export_profile.number_of_digits) + ".png"
-		var temp_file_path := temp_path.path_join(temp_file_name)
-		processed_images[i].image.save_png(temp_file_path)
-		input_file.store_line("file '" + temp_file_name + "'")
-		input_file.store_line("duration %s" % processed_images[i].duration)
-		if i == processed_images.size() - 1:
-			# The last frame needs to be stored again after the duration line
-			# in order for it not to be skipped.
-			input_file.store_line("file '" + temp_file_name + "'")
-		video_duration += processed_images[i].duration
-	input_file.close()
-
-	var ffmpeg_execute: PackedStringArray = [
-		"-y",
-		"-f",
-		"concat",
-		"-safe",
-		"0",
-		"-i",
-		input_file_path,
-		"-fps_mode",
-		"passthrough",
-		export_paths[0]
-	]
-	var success := OS.execute(Global.ffmpeg_path, ffmpeg_execute, [], true)
-	if success < 0 or success > 1:
-		var fail_text := """Video failed to export. Make sure you have FFMPEG installed
-			and have set the correct path in the preferences."""
-		Global.popup_error(tr(fail_text))
-		_clear_temp_folder()
-		return false
-	# Find audio layers
-	var ffmpeg_combine_audio: PackedStringArray = ["-y"]
-	var audio_layer_count := 0
-	var max_audio_duration := 0
-	var adelay_string := ""
-	for layer in project.get_all_audio_layers():
-		if layer.audio is AudioStreamMP3 or layer.audio is AudioStreamWAV:
-			var temp_file_name := str(audio_layer_count + 1).pad_zeros(
-				export_profile.number_of_digits
-			)
-			if layer.audio is AudioStreamMP3:
-				temp_file_name += ".mp3"
-			elif layer.audio is AudioStreamWAV:
-				temp_file_name += ".wav"
-			var temp_file_path := temp_path.path_join(temp_file_name)
-			if layer.audio is AudioStreamMP3:
-				var temp_audio_file := FileAccess.open(temp_file_path, FileAccess.WRITE)
-				temp_audio_file.store_buffer(layer.audio.data)
-			elif layer.audio is AudioStreamWAV:
-				layer.audio.save_to_wav(temp_file_path)
-			ffmpeg_combine_audio.append("-i")
-			ffmpeg_combine_audio.append(temp_file_path)
-			var delay := floori(layer.playback_position * 1000)
-			# [n]adelay=delay_in_ms:all=1[na]
-			adelay_string += (
-				"[%s]adelay=%s:all=1[%sa];" % [audio_layer_count, delay, audio_layer_count]
-			)
-			audio_layer_count += 1
-			if layer.get_audio_length() >= max_audio_duration:
-				max_audio_duration = layer.get_audio_length()
-	if audio_layer_count > 0:
-		# If we have audio layers, merge them all into one file.
-		for i in audio_layer_count:
-			adelay_string += "[%sa]" % i
-		var amix_inputs_string := "amix=inputs=%s[a]" % audio_layer_count
-		var final_filter_string := adelay_string + amix_inputs_string
-		var audio_file_path := temp_path.path_join("audio.mp3")
-		ffmpeg_combine_audio.append_array(
-			PackedStringArray(
-				["-filter_complex", final_filter_string, "-map", '"[a]"', audio_file_path]
-			)
-		)
-		# ffmpeg -i input1 -i input2 ... -i inputn -filter_complex amix=inputs=n output_path
-		var combined_audio_success := OS.execute(Global.ffmpeg_path, ffmpeg_combine_audio, [], true)
-		if combined_audio_success == 0 or combined_audio_success == 1:
-			var copied_video := temp_path.path_join("video." + export_paths[0].get_extension())
-			# Then mix the audio file with the video.
-			DirAccess.copy_absolute(export_paths[0], copied_video)
-			# ffmpeg -y -i video_file -i input_audio -c:v copy -map 0:v:0 -map 1:a:0 video_file
-			var ffmpeg_final_video: PackedStringArray = [
-				"-y", "-i", copied_video, "-i", audio_file_path
-			]
-			if max_audio_duration > video_duration:
-				ffmpeg_final_video.append("-shortest")
-			ffmpeg_final_video.append_array(
-				["-c:v", "copy", "-map", "0:v:0", "-map", "1:a:0", export_paths[0]]
-			)
-			OS.execute(Global.ffmpeg_path, ffmpeg_final_video, [], true)
-	_clear_temp_folder()
-	return true
-
-
-func _clear_temp_folder() -> void:
-	var temp_dir := DirAccess.open(temp_path)
-	for file in temp_dir.get_files():
-		temp_dir.remove(file)
-	DirAccess.remove_absolute(temp_path)
 
 
 func export_animated(args: Dictionary) -> void:
@@ -839,25 +684,19 @@ func export_animated(args: Dictionary) -> void:
 
 	# Export and save GIF/APNG
 
-	if OS.has_feature("web"):
-		var file_data := await exporter.export_animation(
-			frames, project.fps, self, "_increase_export_progress", [export_dialog]
+	# Open the file for export
+	var file := FileAccess.open(args["export_paths"][0], FileAccess.WRITE)
+	if FileAccess.get_open_error() == OK:
+		var buffer_data := await exporter.export_animation(
+			frames, project.fps, self, "_increase_export_progress", [export_dialog], file
 		)
-		JavaScriptBridge.download_buffer(file_data, args["export_paths"][0], exporter.mime_type)
-	else:
-		# Open the file for export
-		var file := FileAccess.open(args["export_paths"][0], FileAccess.WRITE)
-		if FileAccess.get_open_error() == OK:
-			var buffer_data := await exporter.export_animation(
-				frames, project.fps, self, "_increase_export_progress", [export_dialog], file
-			)
-			# In order to save memory, some exporters (like GIF) auto saves the data to file as
-			# soon as it is processed (usually, frame by frame). If the exporter does not have this
-			# feature, then the buffer_data will not be empty and we have to save it manually after
-			# all frames are processed.
-			if not buffer_data.is_empty():
-				file.store_buffer(buffer_data)
-			file.close()
+		# In order to save memory, some exporters (like GIF) auto saves the data to file as
+		# soon as it is processed (usually, frame by frame). If the exporter does not have this
+		# feature, then the buffer_data will not be empty and we have to save it manually after
+		# all frames are processed.
+		if not buffer_data.is_empty():
+			file.store_buffer(buffer_data)
+		file.close()
 	export_dialog.toggle_export_progress_popup(false)
 	Global.notification_label("File(s) exported")
 
@@ -949,23 +788,10 @@ func get_file_format_from_extension(file_extension: String) -> FileFormat:
 	return FileFormat.PNG
 
 
-## True when exporting to .gif, .apng and video
+## True when exporting to .gif, .apng and .aseprite
 ## False when exporting to .png, .jpg and static .webp
 func is_single_file_format(project := Global.current_project) -> bool:
 	return animated_formats.has(project.export_profile.file_format)
-
-
-func is_using_ffmpeg(format: FileFormat) -> bool:
-	return ffmpeg_formats.has(format)
-
-
-func is_ffmpeg_installed() -> bool:
-	if Global.ffmpeg_path.is_empty():
-		return false
-	var ffmpeg_executed := OS.execute(Global.ffmpeg_path, [])
-	if ffmpeg_executed == 0 or ffmpeg_executed == 1:
-		return true
-	return false
 
 
 func _create_export_path(
@@ -1013,17 +839,12 @@ func _create_export_path(
 				path + file_format_string(export_profile.file_format, true)
 			)
 	path += path_extras
-
-	if OS.get_name() == "Android":
-		return (
-			export_profile.directory_path
-			+ "#"
-			+ path
-			+ file_format_string(export_profile.file_format, true)
-		)
-
-	return export_profile.directory_path.path_join(
-		path + file_format_string(export_profile.file_format, true)
+	# Android's SAF directory paths need the file name appended with "#".
+	return (
+		export_profile.directory_path
+		+ "#"
+		+ path
+		+ file_format_string(export_profile.file_format, true)
 	)
 
 

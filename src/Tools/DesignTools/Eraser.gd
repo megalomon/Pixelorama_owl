@@ -94,7 +94,6 @@ func draw_end(pos: Vector2i) -> void:
 
 	super.draw_end(pos)
 	commit_undo()
-	SteamManager.set_achievement("ACH_ERASE_PIXEL")
 	cursor_text = ""
 	update_random_image()
 

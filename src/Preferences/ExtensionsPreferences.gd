@@ -19,13 +19,10 @@ func _ready() -> void:
 	extensions.extension_loaded.connect(_extension_loaded)
 	extensions.extension_uninstalled.connect(_extension_uninstalled)
 	delete_confirmation.add_button("Move to Trash", false, Extensions.BIN_ACTION)
-	if OS.get_name() == "Web":
-		$HBoxContainer/AddExtensionButton.disabled = true
-	else:
-		# TODO: Remove the loop when https://github.com/godotengine/godot/issues/92848 gets fixed.
-		for dialog_child in add_extension_file_dialog.find_children("", "Window", true, false):
-			if dialog_child is Window:
-				dialog_child.always_on_top = add_extension_file_dialog.always_on_top
+	# TODO: Remove the loop when https://github.com/godotengine/godot/issues/92848 gets fixed.
+	for dialog_child in add_extension_file_dialog.find_children("", "Window", true, false):
+		if dialog_child is Window:
+			dialog_child.always_on_top = add_extension_file_dialog.always_on_top
 
 
 func _extension_loaded(extension: Extensions.Extension, extension_name: String) -> void:
@@ -109,10 +106,6 @@ func _on_EnableButton_pressed() -> void:
 
 func _on_UninstallButton_pressed() -> void:
 	delete_confirmation.popup_centered_clamped()
-
-
-func _on_OpenFolderButton_pressed() -> void:
-	OS.shell_open(ProjectSettings.globalize_path(extensions.EXTENSIONS_PATH))
 
 
 func _on_AddExtensionFileDialog_files_selected(paths: PackedStringArray) -> void:

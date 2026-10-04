@@ -57,7 +57,6 @@ var pixelize_dialog := Dialog.new("res://src/UI/Dialogs/ImageEffects/PixelizeDia
 var posterize_dialog := Dialog.new("res://src/UI/Dialogs/ImageEffects/Posterize.tscn")
 var loaded_effect_dialogs: Array[Dialog] = []
 var last_applied_effect: Window
-var window_opacity_dialog := Dialog.new("res://src/UI/Dialogs/WindowOpacityDialog.tscn")
 var about_dialog := Dialog.new("res://src/UI/Dialogs/AboutDialog.tscn")
 var backup_dialog := Dialog.new("res://src/UI/Dialogs/BackupRestoreDialog.tscn")
 
@@ -273,10 +272,6 @@ func _setup_file_menu() -> void:
 
 	file_menu.id_pressed.connect(file_menu_id_pressed)
 
-	if OS.get_name() == "Web":
-		file_menu.set_item_disabled(Global.FileMenu.OPEN_LAST_PROJECT, true)
-		file_menu.set_item_disabled(Global.FileMenu.RECENT, true)
-
 
 func _setup_recent_projects_submenu(item: String) -> void:
 	recent_projects_submenu.name = "RecentProjectsPopupMenu"
@@ -449,7 +444,6 @@ func _setup_snap_to_submenu(item: String) -> void:
 func _setup_window_menu() -> void:
 	# Order as in Global.WindowMenu enum
 	var window_menu_items := {
-		"Window Opacity": "",
 		"Panels": "",
 		"Layouts": "",
 		"Moveable Panels": "moveable_panels",
@@ -462,18 +456,11 @@ func _setup_window_menu() -> void:
 			_setup_panels_submenu(item)
 		elif item == "Layouts":
 			_setup_layouts_submenu(item)
-		elif item == "Window Opacity":
-			window_menu.add_item(item, i)
 		else:
 			_set_menu_shortcut(window_menu_items[item], window_menu, i, item, true)
 		i += 1
 	window_menu.hide_on_checkable_item_selection = false
 	window_menu.id_pressed.connect(window_menu_id_pressed)
-	# Disable window opacity item if per pixel transparency is not allowed
-	window_menu.set_item_disabled(
-		Global.WindowMenu.WINDOW_OPACITY,
-		!ProjectSettings.get_setting("display/window/per_pixel_transparency/allowed")
-	)
 
 
 func _setup_panels_submenu(item: String) -> void:
@@ -750,11 +737,8 @@ func file_menu_id_pressed(id: int) -> void:
 
 
 func _open_project_file() -> void:
-	if OS.get_name() == "Web":
-		Html5FileExchange.load_image()
-	else:
-		_popup_dialog(main.open_sprite_dialog)
-		main.opensprite_file_selected = false
+	_popup_dialog(main.open_sprite_dialog)
+	main.opensprite_file_selected = false
 
 
 func _on_open_last_project_file_menu_option_pressed() -> void:
@@ -775,7 +759,7 @@ func _save_project_file() -> void:
 	if path == "":
 		main.show_save_dialog()
 	else:
-		main.save_project(path, false)
+		main.save_project(path)
 
 
 func _export_file() -> void:
@@ -860,8 +844,6 @@ func view_menu_id_pressed(id: int) -> void:
 
 func window_menu_id_pressed(id: int) -> void:
 	match id:
-		Global.WindowMenu.WINDOW_OPACITY:
-			window_opacity_dialog.popup()
 		Global.WindowMenu.MOVABLE_PANELS:
 			main_ui.hide_single_tab = not main_ui.hide_single_tab
 			window_menu.set_item_checked(id, not main_ui.hide_single_tab)
@@ -1257,7 +1239,6 @@ func help_menu_id_pressed(id: int) -> void:
 			_popup_dialog(get_tree().current_scene.splash_dialog)
 		Global.HelpMenu.ONLINE_DOCS:
 			OS.shell_open(DOCS_URL)
-			SteamManager.set_achievement("ACH_ONLINE_DOCS")
 		Global.HelpMenu.RESTORE_BACKUP:
 			backup_dialog.popup()
 		Global.HelpMenu.ISSUE_TRACKER:
@@ -1270,6 +1251,5 @@ func help_menu_id_pressed(id: int) -> void:
 			about_dialog.popup()
 		Global.HelpMenu.SUPPORT_PIXELORAMA:
 			OS.shell_open(SUPPORT_URL)
-			SteamManager.set_achievement("ACH_SUPPORT_DEVELOPMENT")
 		_:
 			_handle_metadata(id, help_menu)

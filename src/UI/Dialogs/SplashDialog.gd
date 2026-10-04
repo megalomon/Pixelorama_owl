@@ -67,8 +67,6 @@ class Artwork:
 func _ready() -> void:
 	set_process(false)
 	get_ok_button().visible = false
-	if OS.get_name() == "Web":
-		open_last_btn.visible = false
 
 
 ## Only gets called if there are animated artworks.

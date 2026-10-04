@@ -32,7 +32,6 @@ var preferences: Array[Preference] = [
 	Preference.new(
 		"quit_confirmation", "Startup/StartupContainer/QuitConfirmation", "button_pressed", false
 	),
-	Preference.new("ffmpeg_path", "Startup/StartupContainer/FFMPEGPath", "text", ""),
 	Preference.new("shrink", "%ShrinkSlider", "value", Global.auto_content_scale_factor),
 	Preference.new("theme_font_index", "%FontOptionButton", "selected", 1),
 	Preference.new("font_size", "%FontSizeSlider", "value", 16),
@@ -52,26 +51,7 @@ var preferences: Array[Preference] = [
 		true
 	),
 	Preference.new(
-		"use_native_file_dialogs",
-		"Interface/InterfaceOptions/NativeFileDialogs",
-		"button_pressed",
-		false
-	),
-	Preference.new(
-		"single_window_mode",
-		"Interface/InterfaceOptions/SingleWindowMode",
-		"button_pressed",
-		true,
-		true
-	),
-	(
-		Preference
-		. new(
-			"collapse_main_menu",
-			"Interface/InterfaceOptions/CollapseMainMenu",
-			"button_pressed",
-			OS.has_feature("mobile"),
-		)
+		"collapse_main_menu", "Interface/InterfaceOptions/CollapseMainMenu", "button_pressed", true
 	),
 	Preference.new("theme_preset_index", "%ThemePresetOptionButton", "selected", 0),
 	pref_theme_base_color,
@@ -251,21 +231,6 @@ var preferences: Array[Preference] = [
 		"button_pressed",
 		false
 	),
-	Preference.new(
-		"window_transparency",
-		"Performance/PerformanceContainer/WindowTransparency",
-		"button_pressed",
-		false,
-		true
-	),
-	Preference.new(
-		"dummy_audio_driver",
-		"Performance/PerformanceContainer/DummyAudioDriver",
-		"button_pressed",
-		false,
-		true
-	),
-	Preference.new("tablet_driver", "Drivers/DriversContainer/TabletDriver", "selected", 0),
 	Preference.new("author_display_name", "Attribution/AuthorContainer/DisplayName", "text", ""),
 	Preference.new("author_real_name", "Attribution/AuthorContainer/RealName", "text", ""),
 	Preference.new("author_contact", "Attribution/AuthorContainer/Contact", "text", ""),
@@ -286,8 +251,6 @@ var selected_item := 0
 @onready var autosave_container: Container = right_side.get_node("Backup/AutosaveContainer")
 @onready var autosave_interval: SpinBox = autosave_container.get_node("AutosaveInterval")
 @onready var shortcuts: Control = right_side.get_node("Shortcuts/ShortcutEdit")
-@onready var tablet_driver_label: Label = $"%TabletDriverLabel"
-@onready var tablet_driver: OptionButton = $"%TabletDriver"
 @onready var extensions: BoxContainer = right_side.get_node("Extensions")
 @onready var reset_category: VBoxContainer = %Reset
 @onready var must_restart: BoxContainer = $"%MustRestart"
@@ -338,37 +301,6 @@ func _ready() -> void:
 		if not child is AcceptDialog:
 			continue
 		child.confirmed.connect(Tools.update_hint_tooltips)
-
-	if OS.get_name() == "Web":
-		var startup := right_side.get_node(^"Startup")
-		right_side.remove_child(startup)
-		startup.queue_free()
-		right_side.get_node(^"Language").visible = true
-		Global.open_last_project = false
-		%ClearRecentFiles.hide()
-	if OS.get_name() == "Windows":
-		tablet_driver_label.visible = true
-		tablet_driver.visible = true
-		for driver in DisplayServer.tablet_get_driver_count():
-			var driver_name := DisplayServer.tablet_get_driver_name(driver)
-			tablet_driver.add_item(driver_name, driver)
-	else:
-		var drivers := right_side.get_node(^"Drivers")
-		right_side.remove_child(drivers)
-		drivers.queue_free()
-	if OS.is_sandboxed():
-		get_tree().call_group(&"NoSandbox", &"free")
-	if not OS.has_feature("pc"):
-		get_tree().call_group(&"DesktopOnly", &"free")
-	if not OS.has_feature("mobile"):
-		get_tree().call_group(&"MobileOnly", &"free")
-	if (
-		not DisplayServer.has_feature(DisplayServer.FEATURE_NATIVE_DIALOG_FILE)
-		or OS.get_name() == "Android"
-	):
-		# We want to force all file dialogs to be native in Android to use SAF,
-		# to avoid requesting permission, which Google discourages.
-		get_tree().call_group(&"NativeFileDialog", &"free")
 
 	for child in right_side.get_children():
 		content_list.append(child.name)
@@ -441,7 +373,6 @@ func _ready() -> void:
 			is_default = value.is_equal_approx(pref.default_value)
 		restore_default_button.set_disabled_status(is_default)
 	_on_theme_switched()
-	SteamManager.set_achievement("ACH_PREFERENCES")
 
 
 func _on_Preference_value_changed(value, pref: Preference, button: RestoreDefaultButton) -> void:

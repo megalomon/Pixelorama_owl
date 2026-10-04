@@ -20,6 +20,9 @@ env:
   ANDROID_BUILD_TOOLS: "build-tools;36.1.0"
   ANDROID_NDK: "ndk;29.0.14206865"
 
+permissions:
+  contents: write  # Needed to publish the GitHub release with the APK.
+
 jobs:
   export-android:
     name: Android Export 🤖
@@ -72,3 +75,15 @@ jobs:
           name: ${{ env.EXPORT_NAME }}-Android
           path: ./build/${{ env.EXPORT_NAME }}.apk
           retention-days: 30
+      - name: Publish Release 📦
+        # Stable download link: https://github.com/<owner>/<repo>/releases/latest/download/Pixelorama.apk
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: android-${{ github.run_number }}
+          name: Android build ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            Built from ${{ github.sha }}:
+            ${{ github.event.head_commit.message || 'Manual run' }}
+          files: ./build/${{ env.EXPORT_NAME }}.apk
+          make_latest: true

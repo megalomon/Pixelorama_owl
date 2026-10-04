@@ -46,10 +46,8 @@ var has_changed := false:
 		if value:
 			Global.project_data_changed.emit(self)
 			Global.tabs.set_tab_title(tab_index, name + "(*)")
-			JavaScriptBridge.eval("setUnsavedChanges(true);")
 		else:
 			Global.tabs.set_tab_title(tab_index, name)
-			JavaScriptBridge.eval("setUnsavedChanges(false);")
 # frames and layers Arrays should generally only be modified directly when
 # opening/creating a project. When modifying the current project, use
 # the add/remove/move/swap_frames/layers methods
@@ -161,12 +159,9 @@ func _init(_frames: Array[Frame] = [], _name := tr("untitled"), _size := Vector2
 	)
 	Global.canvas.add_child(diagonal_x_minus_y_symmetry_axis)
 
-	if OS.get_name() == "Web":
-		export_profile.directory_path = "user://"
-	else:
-		export_profile.directory_path = Global.config_cache.get_value(
-			"data", "current_dir", OS.get_system_dir(OS.SYSTEM_DIR_DESKTOP)
-		)
+	export_profile.directory_path = Global.config_cache.get_value(
+		"data", "current_dir", OS.get_system_dir(OS.SYSTEM_DIR_DESKTOP)
+	)
 	initialize_attribution_data()
 	Global.project_created.emit(self)
 

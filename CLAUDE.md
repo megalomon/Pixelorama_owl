@@ -22,16 +22,29 @@ gdlint .                       # lint; rules configured in .gdlintrc (max-file-l
 codespell --skip "./addons,./Translations,./src/UI/Dialogs/AboutDialog.gd,./src/Classes/SoftwareParsers/PhotoshopParser.gd" -L chello,doubleclick,Manuel,SectionIn
 ```
 
-The APK is built by `.github/workflows/android.yml` on every push to `master` (and via manual dispatch); the signed APK is uploaded as the `Pixelorama-Android` workflow artifact. It runs in the `barichello/godot-ci:4.7.2` image and uses a Gradle build (`gradle_build/use_gradle_build=true`, required by the `applinks` Android plugin). Key points:
+The APK is built by `.github/workflows/android.yml` on every push to `master` (and via manual dispatch); the signed APK is uploaded as the `Pixelorama-Android` workflow artifact and published as a GitHub release (tag `android-<run number>`), so the newest build is always at `https://github.com/megalomon/Pixelorama_owl/releases/latest/download/Pixelorama.apk`. It runs in the `barichello/godot-ci:4.7.2` image and uses a Gradle build (`gradle_build/use_gradle_build=true`, required by the `applinks` Android plugin). Key points:
 
 - The SDK packages installed in the workflow (`ANDROID_PLATFORM`, `ANDROID_BUILD_TOOLS`, `ANDROID_NDK`) must match `platform/android/java/app/config.gradle` of the Godot version in use. Update them when bumping Godot.
 - Release signing uses the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_ALIAS` and `ANDROID_KEYSTORE_PASSWORD`, passed to Godot via the `GODOT_ANDROID_KEYSTORE_RELEASE_*` env vars. Never change the keystore: Android only installs updates signed with the same key.
 - `version/code` in the preset is overwritten with the workflow run number so every build installs as an update.
 - `android/` (the Gradle build template) is gitignored and installed at build time with `--install-android-build-template`.
 
-Godot is not preinstalled in the cloud container, so the app can't be run or exported locally there; rely on the workflow.
+The APK itself is only built by the workflow.
 
-The app also has a headless CLI for project export, defined in `src/Main.gd`, e.g. `--export`, `--output`, `--scale`, `--frames`, `--spritesheet` and `--help`.
+### Validating changes without a device
+
+Godot 4.7.2 can be downloaded into the container (`Godot_v4.7.2-stable_linux.x86_64.zip` from the `godotengine/godot-builds` releases) to check changes headlessly. Run `--headless --import` twice (the first run only builds the class cache), then `--headless --quit-after 300` to boot the app. To exercise specific features, add a temporary autoload through an untracked `override.cfg` in the project root (it is gitignored), e.g. `[autoload]` with `Tester="*res://_tmp/tester.gd"`, that awaits `Global.pixelorama_opened` and drives the UI. Compare the output against the same run on the previous commit; 4 `custom_samplers` shader errors are pre-existing. Delete the temporary files afterwards.
+
+## Removed upstream features
+
+Code that can never run on Android was removed. Don't reintroduce it:
+
+- Web/HTML5 (`HTML5FileExchange`, `JavaScriptBridge` downloads, the HTML5 save dialog), Steam achievements, the desktop command-line interface and browser drag-and-drop image downloads.
+- macOS/Windows/Linux-only branches (Cmd key, Windows tablet driver, XDG data dirs, window position/size restore, Flatpak hints) and the desktop-only preferences (single-window mode, window transparency/opacity, dummy audio driver, `override.cfg` writing).
+- FFmpeg: video export/import and the Recorder's GIF export. The Recorder only captures the canvas (screen capture via `DisplayServer.screen_get_image` is not implemented on Android).
+- EXR and the video formats remain in `Export.FileFormat` only to keep the enum values stable (they are stored in `.pxo` files and used by extensions), but are not offered.
+
+Android-specific behavior is now unconditional, e.g. export paths use the SAF `directory#file` form and `.pxo` files are written in place without a temporary file.
 
 ## Code conventions
 
