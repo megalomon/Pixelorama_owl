@@ -7,12 +7,18 @@ on:
       - "**.md"
       - ".claude/**"
   workflow_dispatch:
+  # Rebuild the APK once a new engine template has been published.
+  workflow_run:
+    workflows: [ "Android Engine ⚙️" ]
+    types: [ completed ]
+    branches: [ master ]
 
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
 
 env:
+  # Must match the godot-ci image tag below and GODOT_VERSION in .github/android-engine.env.
   GODOT_VERSION: 4.7.2
   EXPORT_NAME: Pixelorama
   # Must match platform/android/java/app/config.gradle of the Godot version above.
@@ -24,8 +30,38 @@ permissions:
   contents: write  # Needed to publish the GitHub release with the APK.
 
 jobs:
+  check-engine:
+    name: Check engine template ⚙️
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.engine.outputs.ready }}
+      url: ${{ steps.engine.outputs.url }}
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v7
+      - name: Find engine release 🔍
+        id: engine
+        run: |
+          engine_version=$(grep -oP '^GODOT_VERSION=\K.*' .github/android-engine.env)
+          if [ "$engine_version" != "$GODOT_VERSION" ]; then
+            echo "::error::GODOT_VERSION differs between android.yml ($GODOT_VERSION) and android-engine.env ($engine_version)."
+            exit 1
+          fi
+          tag="engine-$engine_version-$(sha256sum .github/android-engine.env | cut -c1-8)"
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/android_source.zip"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          if curl -sfIL -o /dev/null "$url"; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Engine release $tag is not built yet. The APK will be built once the Android Engine workflow has published it."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
   export-android:
     name: Android Export 🤖
+    needs: check-engine
+    if: needs.check-engine.outputs.ready == 'true'
     runs-on: ubuntu-latest
     container:
       image: docker://barichello/godot-ci:4.7.2
@@ -53,6 +89,9 @@ jobs:
           mkdir -v -p build ~/.local/share/godot/export_templates ~/.config
           mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
           cp -r /root/.config/godot ~/.config/godot
+          # Replace the official Gradle build template with the CPU-optimized engine build.
+          wget -q -O ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/android_source.zip \
+            "${{ needs.check-engine.outputs.url }}"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "$ANDROID_PLATFORM" "$ANDROID_BUILD_TOOLS" "$ANDROID_NDK"
           sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/" export_presets.cfg
@@ -83,7 +122,7 @@ jobs:
           name: Android build ${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           body: |
-            Built from ${{ github.sha }}:
-            ${{ github.event.head_commit.message || 'Manual run' }}
+            Built from ${{ github.sha }} (${{ github.event_name }}).
+            ${{ github.event.head_commit.message }}
           files: ./build/${{ env.EXPORT_NAME }}.apk
           make_latest: true

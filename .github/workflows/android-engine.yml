@@ -1,0 +1,90 @@
+name: Android Engine ⚙️
+# Builds the Godot Android release template (android_source.zip) with CPU-specific compiler
+# optimizations from .github/android-engine.env and publishes it as a GitHub release, which
+# android.yml then uses instead of the official template.
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - ".github/android-engine.env"
+      - ".github/workflows/android-engine.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: android-engine
+  cancel-in-progress: false
+
+permissions:
+  contents: write  # Needed to publish the engine release.
+
+jobs:
+  build-engine:
+    name: Build Godot Android template ⚙️
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v7
+      - name: Read engine configuration 📄
+        run: |
+          grep -v '^\s*#' .github/android-engine.env | grep '=' >> "$GITHUB_ENV"
+          echo "ENGINE_TAG=engine-$(grep -oP '^GODOT_VERSION=\K.*' .github/android-engine.env)-$(sha256sum .github/android-engine.env | cut -c1-8)" >> "$GITHUB_ENV"
+      - name: Check for existing release 🔍
+        id: existing
+        run: |
+          if gh release view "$ENGINE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Engine release $ENGINE_TAG already exists, nothing to build."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Checkout Godot 🛎️
+        if: steps.existing.outputs.exists == 'false'
+        uses: actions/checkout@v7
+        with:
+          repository: godotengine/godot
+          ref: ${{ env.GODOT_VERSION }}-stable
+          path: godot
+      - name: Set up Java ☕
+        if: steps.existing.outputs.exists == 'false'
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Set up build tools 💻
+        if: steps.existing.outputs.exists == 'false'
+        working-directory: godot
+        run: |
+          python -m pip install scons
+          # Versions from platform/android/java/app/config.gradle of the checked out Godot version.
+          ndk=$(grep -oP "ndkVersion\s*:\s*'\K[^']+" platform/android/java/app/config.gradle)
+          sdk=$(grep -oP "compileSdk\s*:\s*\K[0-9]+" platform/android/java/app/config.gradle)
+          tools=$(grep -oP "buildTools\s*:\s*'\K[^']+" platform/android/java/app/config.gradle)
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$ndk" "platforms;android-$sdk" "build-tools;$tools"
+          python misc/scripts/install_swappy_android.py
+      - name: Build native library 🔧
+        if: steps.existing.outputs.exists == 'false'
+        working-directory: godot
+        run: |
+          scons platform=android target=template_release arch=arm64 $ENGINE_SCONS_ARGS \
+            ccflags="$ENGINE_CCFLAGS" -j"$(nproc)"
+      - name: Build Gradle template 📦
+        if: steps.existing.outputs.exists == 'false'
+        working-directory: godot/platform/android/java
+        run: ./gradlew generateGodotTemplates
+      - name: Publish engine release 🚀
+        if: steps.existing.outputs.exists == 'false'
+        run: |
+          test -f godot/bin/android_source.zip
+          {
+            echo "Godot $GODOT_VERSION Android release template, built by the Android Engine workflow."
+            echo
+            echo "- ccflags: \`$ENGINE_CCFLAGS\`"
+            echo "- scons: \`$ENGINE_SCONS_ARGS\`"
+          } > notes.md
+          gh release create "$ENGINE_TAG" godot/bin/android_source.zip \
+            --repo "$GITHUB_REPOSITORY" --title "Engine $ENGINE_TAG" --notes-file notes.md --latest=false

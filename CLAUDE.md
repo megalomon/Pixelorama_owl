@@ -28,6 +28,8 @@ The APK is built by `.github/workflows/android.yml` on every push to `master` (a
 - Release signing uses the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_ALIAS` and `ANDROID_KEYSTORE_PASSWORD`, passed to Godot via the `GODOT_ANDROID_KEYSTORE_RELEASE_*` env vars. Never change the keystore: Android only installs updates signed with the same key.
 - `version/code` in the preset is overwritten with the workflow run number so every build installs as an update.
 - `android/` (the Gradle build template) is gitignored and installed at build time with `--install-android-build-template`.
+- `min_sdk` and `target_sdk` are both 36 (Android 16); both devices run Android 16+.
+- The APK does **not** use the official Godot engine binary. `.github/workflows/android-engine.yml` builds the Android release template (`android_source.zip`) from Godot source with the flags in `.github/android-engine.env` (CPU-specific `-march`/`-mtune`, `production=yes lto=full`) and publishes it as release `engine-<version>-<first 8 chars of the env file's sha256>`. `android.yml` downloads that release and replaces the official template with it; if it doesn't exist yet, the export job is skipped and runs again via `workflow_run` once the engine workflow finishes. Changing `android-engine.env` triggers a new engine build (slow, roughly an hour). When bumping Godot, update `GODOT_VERSION` in `android-engine.env`, `android.yml` and its container image tag together.
 
 The APK itself is only built by the workflow.
 
