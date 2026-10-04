@@ -23,7 +23,7 @@
 | **CPU** | Exynos 1380 (5nm) |
 | | 4x 2,4 GHz Cortex-A78 |
 | | 4x 2,0 GHz Cortex-A55 |
-| **RAM** | 6 GB / 8 GB (je nach Variante) |
+| **RAM** | 6 GB |
 | **GPU** | Mali-G68 MP5 |
 | **Display-Größe** | 10,9" |
 | **Auflösung** | 1440 x 2304 px (16:10) |
