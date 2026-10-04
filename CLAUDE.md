@@ -8,7 +8,7 @@ This repo is `megalomon/Pixelorama_owl`, a fork of [Orama-Interactive/Pixelorama
 
 Upstream's `CONTRIBUTING.md` does **not allow** AI-assisted contributions. Never open PRs or post comments against the upstream repository.
 
-The target devices of this fork are listed in `devices_specs.md` (Android phone and tablet). The `Android` preset in `export_presets.cfg` is the relevant export target for them.
+The fork is customized for the user's own Android devices, listed in `devices_specs.md`. Android is the **only** target: `export_presets.cfg` contains just the `Android` preset, and desktop, web and installer tooling has been removed. Optimizations for these devices may freely sacrifice portability to other platforms.
 
 ## Commands
 
@@ -19,18 +19,17 @@ pip install gdtoolkit          # provides gdformat + gdlint (CI uses Scony/godot
 gdformat --diff .              # formatting check (drop --diff to apply)
 gdformat path/to/File.gd       # format a single file
 gdlint .                       # lint; rules configured in .gdlintrc (max-file-lines 2000, some rules disabled)
-codespell --skip "./addons,./Translations,./installer,./src/UI/Dialogs/AboutDialog.gd,./src/Classes/SoftwareParsers/PhotoshopParser.gd" -L chello,doubleclick,Manuel,SectionIn
+codespell --skip "./addons,./Translations,./src/UI/Dialogs/AboutDialog.gd,./src/Classes/SoftwareParsers/PhotoshopParser.gd" -L chello,doubleclick,Manuel,SectionIn
 ```
 
-Running and exporting need a Godot 4.7.2 binary, which is not preinstalled in the cloud container. Commands mirrored from `.github/workflows/dev-desktop-builds.yml`:
+The APK is built by `.github/workflows/android.yml` on every push to `master` (and via manual dispatch); the signed APK is uploaded as the `Pixelorama-Android` workflow artifact. It runs in the `barichello/godot-ci:4.7.2` image and uses a Gradle build (`gradle_build/use_gradle_build=true`, required by the `applinks` Android plugin). Key points:
 
-```bash
-godot --headless --import                                              # import resources once
-godot --headless --export-release "Linux 64-bit" build/Pixelorama.x86_64
-# Other preset names: "Windows Desktop 64-bit", "Linux ARM64", "macOS", "Web", "Android"
-```
+- The SDK packages installed in the workflow (`ANDROID_PLATFORM`, `ANDROID_BUILD_TOOLS`, `ANDROID_NDK`) must match `platform/android/java/app/config.gradle` of the Godot version in use. Update them when bumping Godot.
+- Release signing uses the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_ALIAS` and `ANDROID_KEYSTORE_PASSWORD`, passed to Godot via the `GODOT_ANDROID_KEYSTORE_RELEASE_*` env vars. Never change the keystore: Android only installs updates signed with the same key.
+- `version/code` in the preset is overwritten with the workflow run number so every build installs as an update.
+- `android/` (the Gradle build template) is gitignored and installed at build time with `--install-android-build-template`.
 
-After exporting, copy the `pixelorama_data/` folder next to the binary and remove its `.gdignore`. It holds the default brushes, palettes and patterns.
+Godot is not preinstalled in the cloud container, so the app can't be run or exported locally there; rely on the workflow.
 
 The app also has a headless CLI for project export, defined in `src/Main.gd`, e.g. `--export`, `--output`, `--scale`, `--frames`, `--spritesheet` and `--help`.
 

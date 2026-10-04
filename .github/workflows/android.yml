@@ -1,0 +1,74 @@
+name: Android APK 🤖
+
+on:
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - "**.md"
+      - ".claude/**"
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2
+  EXPORT_NAME: Pixelorama
+  # Must match platform/android/java/app/config.gradle of the Godot version above.
+  ANDROID_PLATFORM: "platforms;android-36"
+  ANDROID_BUILD_TOOLS: "build-tools;36.1.0"
+  ANDROID_NDK: "ndk;29.0.14206865"
+
+jobs:
+  export-android:
+    name: Android Export 🤖
+    runs-on: ubuntu-latest
+    container:
+      image: docker://barichello/godot-ci:4.7.2
+    steps:
+      - name: Check signing secrets 🔑
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          missing=0
+          for name in KEYSTORE_BASE64 KEYSTORE_ALIAS KEYSTORE_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository secret ANDROID_${name} is not set."
+              missing=1
+            fi
+          done
+          exit $missing
+        shell: bash
+      - name: Checkout 🛎️
+        uses: actions/checkout@v7
+      - name: Setup 💻
+        # The image installs everything under /root, but GitHub runs container jobs with HOME=/github/home.
+        run: |
+          mkdir -v -p build ~/.local/share/godot/export_templates ~/.config
+          mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          cp -r /root/.config/godot ~/.config/godot
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "$ANDROID_PLATFORM" "$ANDROID_BUILD_TOOLS" "$ANDROID_NDK"
+          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/" export_presets.cfg
+      - name: Set up keystore 🔑
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.keystore"
+      - name: Import resources once 📦
+        continue-on-error: true
+        run: godot --headless -v --import
+      - name: Android Build 🔧
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ runner.temp }}/release.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          godot --headless -v --install-android-build-template --export-release "Android" ./build/${EXPORT_NAME}.apk
+          test -f ./build/${EXPORT_NAME}.apk
+      - name: Upload Artifact 🚀
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.EXPORT_NAME }}-Android
+          path: ./build/${{ env.EXPORT_NAME }}.apk
+          retention-days: 30
