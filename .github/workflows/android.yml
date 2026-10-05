@@ -108,11 +108,14 @@ jobs:
         run: |
           godot --headless -v --install-android-build-template --export-release "Android" ./build/${EXPORT_NAME}.apk
           test -f ./build/${EXPORT_NAME}.apk
+          # Test variant using the Vulkan (Mobile) renderer, installable side by side (own package ID).
+          godot --headless -v --export-release "Android Vulkan" ./build/${EXPORT_NAME}-Vulkan.apk
+          test -f ./build/${EXPORT_NAME}-Vulkan.apk
       - name: Upload Artifact 🚀
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.EXPORT_NAME }}-Android
-          path: ./build/${{ env.EXPORT_NAME }}.apk
+          path: ./build/*.apk
           retention-days: 30
       - name: Publish Release 📦
         # Stable download link: https://github.com/<owner>/<repo>/releases/latest/download/Pixelorama.apk
@@ -124,5 +127,7 @@ jobs:
           body: |
             Built from ${{ github.sha }} (${{ github.event_name }}).
             ${{ github.event.head_commit.message }}
-          files: ./build/${{ env.EXPORT_NAME }}.apk
+          files: |
+            ./build/${{ env.EXPORT_NAME }}.apk
+            ./build/${{ env.EXPORT_NAME }}-Vulkan.apk
           make_latest: true
